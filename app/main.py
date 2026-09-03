@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import auth
+from app.routers import auth, profiles
 
 app = FastAPI(
     title="ProLance API",
@@ -9,6 +9,8 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(profiles.router)
+app.include_router(profiles.skills_router)
 
 
 @app.get("/health")
