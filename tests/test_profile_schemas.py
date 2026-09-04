@@ -81,5 +81,9 @@ def test_freelancer_profile_schemas():
         updated_at=now,
     )
     assert out_data.id == 2
+    # assert running average rating default
+    assert out_data.avg_rating == Decimal("0.00")
+    # assert completed projects count default
+    assert out_data.completed_projects_count == 0
     assert len(out_data.skills) == 1
     assert len(out_data.portfolio_items) == 1

@@ -1,7 +1,19 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, DateTime, ForeignKey, Numeric, String, Table, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +25,8 @@ freelancer_skills = Table(
     Base.metadata,
     Column("freelancer_profile_id", ForeignKey("freelancer_profiles.id"), primary_key=True),
     Column("skill_id", ForeignKey("skills.id"), primary_key=True),
+    # composite index for fast candidate matching queries by skills
+    Index("idx_freelancer_skills_composite", "freelancer_profile_id", "skill_id"),
 )
 
 
@@ -55,6 +69,10 @@ class ClientProfile(Base):
 # a freelancer's public profile, one per user
 class FreelancerProfile(Base):
     __tablename__: str = "freelancer_profiles"
+    __table_args__ = (
+        # enforce non-negative hourly rate at the database constraint level
+        CheckConstraint("hourly_rate >= 0", name="check_freelancer_hourly_rate_non_negative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # one freelancer profile per user (unique FK)
@@ -63,6 +81,14 @@ class FreelancerProfile(Base):
     bio: Mapped[str | None] = mapped_column(Text)
     # money is stored as fixed-precision Decimal, never a float
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # running aggregate rating stored as fixed-precision decimal
+    avg_rating: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2), server_default="0.00", default=Decimal("0.00"), nullable=False
+    )
+    # running counter of successfully completed projects
+    completed_projects_count: Mapped[int] = mapped_column(
+        Integer, server_default="0", default=0, nullable=False
+    )
 
     user: Mapped["User"] = relationship()
     # the many-to-many link to skills

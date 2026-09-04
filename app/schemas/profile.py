@@ -103,6 +103,10 @@ class FreelancerProfileOut(BaseModel):
     professional_title: str | None = None
     bio: str | None = None
     hourly_rate: Decimal
+    # running aggregate rating of the freelancer
+    avg_rating: Decimal = Decimal("0.00")
+    # counter of completed contracts
+    completed_projects_count: int = 0
     skills: list[SkillOut] = Field(default_factory=list)
     portfolio_items: list[PortfolioItemOut] = Field(default_factory=list)
     created_at: datetime
