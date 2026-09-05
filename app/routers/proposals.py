@@ -91,8 +91,11 @@ def list_own_proposals_endpoint(
     end = start + page_size
     paginated_proposals = all_proposals[start:end]
 
+    # convert SQLAlchemy models to Pydantic models for type safety
+    proposal_outs = [ProposalOut.model_validate(proposal) for proposal in paginated_proposals]
+
     return ProposalListOut(
-        items=paginated_proposals, total=total, page=page, page_size=page_size
+        items=proposal_outs, total=total, page=page, page_size=page_size
     )
 
 

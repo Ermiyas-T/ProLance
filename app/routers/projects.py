@@ -73,8 +73,8 @@ def list_projects_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     skill: int | None = Query(default=None, gt=0),
-    min_budget: Decimal | None = Query(default=None, gt=Decimal("0.00")),
-    max_budget: Decimal | None = Query(default=None, gt=Decimal("0.00")),
+    min_budget: Decimal | None = Query(default=None),
+    max_budget: Decimal | None = Query(default=None),
     status_filter: ProjectStatus = Query(default=ProjectStatus.OPEN, alias="status"),
     search: str | None = Query(default=None, min_length=1, max_length=200),
     sort_by: ProjectSortBy = Query(default=ProjectSortBy.CREATED_AT),
@@ -101,7 +101,9 @@ def list_projects_endpoint(
 
     # keep response pagination metadata aligned with the exact filtered query
     projects, total = list_projects(db, filters, page, page_size)
-    return ProjectListOut(items=projects, total=total, page=page, page_size=page_size)
+    # convert SQLAlchemy models to Pydantic models for type safety
+    project_outs = [ProjectOut.model_validate(project) for project in projects]
+    return ProjectListOut(items=project_outs, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -176,8 +178,11 @@ def list_project_proposals_endpoint(
         end = start + page_size
         paginated_proposals = all_proposals[start:end]
 
+        # convert SQLAlchemy models to Pydantic models for type safety
+        proposal_outs = [ProposalOut.model_validate(proposal) for proposal in paginated_proposals]
+
         return ProposalListOut(
-            items=paginated_proposals, total=total, page=page, page_size=page_size
+            items=proposal_outs, total=total, page=page, page_size=page_size
         )
     except (ProposalProjectNotFoundError, ProposalOwnershipError) as error:
         if isinstance(error, ProposalProjectNotFoundError):
