@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.routers import auth, profiles, projects, proposals
+from app.routers import auth, contracts, profiles, projects, proposals
 
 app = FastAPI(
     title="ProLance API",
@@ -18,6 +18,7 @@ app.include_router(profiles.router)
 app.include_router(profiles.skills_router)
 app.include_router(projects.router)
 app.include_router(proposals.router)
+app.include_router(contracts.router)
 
 
 # comprehensive health check endpoint verifying app and database availability

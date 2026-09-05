@@ -1,3 +1,4 @@
+from app.models.contract import Contract, ContractStatus
 from app.models.profile import (
     ClientProfile,
     FreelancerProfile,
@@ -22,4 +23,6 @@ __all__ = [
     "project_skills",
     "Proposal",
     "ProposalStatus",
+    "Contract",
+    "ContractStatus",
 ]
