@@ -15,7 +15,7 @@ from app.schemas.project import (
     ProjectSortBy,
     ProjectUpdate,
 )
-from app.schemas.proposal import ProposalListOut
+from app.schemas.proposal import ProposalListOut, ProposalOut
 from app.services.project_service import (
     InvalidProjectSkillError,
     InvalidProjectStateError,
