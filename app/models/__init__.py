@@ -5,6 +5,8 @@ from app.models.profile import (
     Skill,
     freelancer_skills,
 )
+from app.models.project import Project, ProjectStatus, project_skills
+from app.models.proposal import Proposal, ProposalStatus
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -15,4 +17,9 @@ __all__ = [
     "FreelancerProfile",
     "PortfolioItem",
     "freelancer_skills",
+    "Project",
+    "ProjectStatus",
+    "project_skills",
+    "Proposal",
+    "ProposalStatus",
 ]
