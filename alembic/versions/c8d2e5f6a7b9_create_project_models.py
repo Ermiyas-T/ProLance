@@ -20,11 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # create project persistence and reusable skill associations for marketplace discovery
 def upgrade() -> None:
-    # create the enum before the projects table references it on PostgreSQL
-    project_status = sa.Enum(
-        "DRAFT", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED", name="projectstatus"
-    )
-    project_status.create(op.get_bind(), checkfirst=True)
     # store client-owned project requirements with money and lifecycle constraints
     op.create_table(
         "projects",
@@ -35,7 +30,7 @@ def upgrade() -> None:
         sa.Column("budget", sa.Numeric(precision=10, scale=2), nullable=False),
         sa.Column("currency", sa.String(length=3), server_default="USD", nullable=False),
         sa.Column("deadline", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("status", project_status, nullable=False),
+        sa.Column("status", sa.Enum("DRAFT", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED", name="projectstatus"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.CheckConstraint("budget > 0", name="check_projects_budget_positive"),
