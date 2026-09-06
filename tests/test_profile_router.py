@@ -58,7 +58,12 @@ def client(db):
 @pytest.fixture
 def client_user(db) -> User:
     # insert client user into database
-    user = User(email="client@example.com", hashed_password="hash", role=UserRole.CLIENT)
+    user = User(
+        full_name="Client User",
+        email="client@example.com",
+        hashed_password="hash",
+        role=UserRole.CLIENT,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -68,7 +73,12 @@ def client_user(db) -> User:
 @pytest.fixture
 def freelancer_user(db) -> User:
     # insert freelancer user into database
-    user = User(email="freelancer@example.com", hashed_password="hash", role=UserRole.FREELANCER)
+    user = User(
+        full_name="Freelancer User",
+        email="freelancer@example.com",
+        hashed_password="hash",
+        role=UserRole.FREELANCER,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
