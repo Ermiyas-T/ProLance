@@ -30,6 +30,9 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# API testing collections (Bruno/Claude)
+ProLance-api-col/
+
 # Logs
 *.log
 AGENTS.md
