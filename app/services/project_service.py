@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -130,7 +131,7 @@ def cancel_project(db: Session, project_id: int, owner_id: int) -> Project:
 
 
 # apply shared marketplace filters to project and count queries consistently
-def _apply_filters(statement: Select[tuple[Project]], filters: ProjectFilters) -> Select[tuple[Project]]:
+def _apply_filters(statement: Select[Any], filters: ProjectFilters) -> Select[Any]:
     # filter by a required skill without joining duplicate project rows
     if filters.skill is not None:
         statement = statement.where(Project.skills.any(Skill.id == filters.skill))
@@ -169,6 +170,6 @@ def list_projects(
     # eager-load skills in one additional query and cap the database result window
     statement = statement.options(selectinload(Project.skills)).offset((page - 1) * page_size).limit(page_size)
 
-    total = db.scalar(count_statement) or 0
+    total = int(db.scalar(count_statement) or 0)
     projects = list(db.scalars(statement).all())
     return projects, total

@@ -1,11 +1,16 @@
 import enum
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.profile import Skill
+    from app.models.user import User
 
 
 # define the only project states allowed by the marketplace lifecycle

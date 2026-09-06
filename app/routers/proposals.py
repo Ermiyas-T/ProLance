@@ -5,22 +5,38 @@ from app.db.session import get_db
 from app.dependencies.auth import get_current_user, require_role
 from app.models.proposal import ProposalStatus
 from app.models.user import User, UserRole
+from app.schemas.contract import ContractOut
 from app.schemas.proposal import ProposalCreate, ProposalListOut, ProposalOut
+from app.services.contract_service import (
+    ContractNotFoundError,
+    ContractParticipationError,
+    InvalidContractStateError,
+    ProjectAlreadyContractedError,
+    accept_proposal,
+)
+from app.services.contract_service import (
+    InvalidProposalStateError as ContractInvalidProposalStateError,
+)
+from app.services.contract_service import (
+    ProjectOwnershipError as ContractProjectOwnershipError,
+)
+from app.services.contract_service import (
+    ProposalNotFoundError as ContractProposalNotFoundError,
+)
 from app.services.proposal_service import (
     DuplicateProposalError,
     InvalidProjectStateError,
     InvalidProposalStateError,
+    ProjectNotFoundError,
     ProposalNotFoundError,
     ProposalOwnershipError,
-    ProjectNotFoundError,
     SelfProposalError,
     create_proposal,
-    get_proposal,
+    get_authorized_proposal,
     list_proposals_by_freelancer,
     list_proposals_for_project,
     withdraw_proposal,
 )
-
 
 # expose freelancer proposal actions under one resource router
 router = APIRouter(prefix="/proposals", tags=["proposals"])
@@ -29,11 +45,17 @@ router = APIRouter(prefix="/proposals", tags=["proposals"])
 # convert proposal-domain failures into stable, safe HTTP responses at the API boundary
 def _raise_proposal_http_error(error: Exception) -> None:
     if isinstance(error, ProposalNotFoundError):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found"
+        )
     if isinstance(error, ProjectNotFoundError):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
     if isinstance(error, ProposalOwnershipError):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the proposal owner")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not the proposal owner"
+        )
     if isinstance(error, InvalidProposalStateError):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -82,17 +104,13 @@ def list_own_proposals_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # freelancers can see their own proposals across all projects
-    all_proposals = list_proposals_by_freelancer(db, current_user.id)
-
-    # apply pagination to the results
-    total = len(all_proposals)
-    start = (page - 1) * page_size
-    end = start + page_size
-    paginated_proposals = all_proposals[start:end]
+    # use database-level pagination to keep the response fast as history grows
+    proposals, total = list_proposals_by_freelancer(
+        db, current_user.id, page, page_size
+    )
 
     # convert SQLAlchemy models to Pydantic models for type safety
-    proposal_outs = [ProposalOut.model_validate(proposal) for proposal in paginated_proposals]
+    proposal_outs = [ProposalOut.model_validate(proposal) for proposal in proposals]
 
     return ProposalListOut(
         items=proposal_outs, total=total, page=page, page_size=page_size
@@ -105,16 +123,11 @@ def get_proposal_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # anyone can view a proposal if they are the freelancer who submitted it
-    proposal = get_proposal(db, proposal_id)
-    if proposal is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
-
-    # object-level authorization: only the proposal owner can view it
-    if proposal.freelancer_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the proposal owner")
-
-    return proposal
+    try:
+        # object-level authorization is handled in the service layer
+        return get_authorized_proposal(db, proposal_id, current_user.id)
+    except (ProposalNotFoundError, ProposalOwnershipError) as error:
+        _raise_proposal_http_error(error)
 
 
 @router.post("/{proposal_id}/withdraw", response_model=ProposalOut)
@@ -126,5 +139,45 @@ def withdraw_proposal_endpoint(
     try:
         # only the freelancer who submitted the proposal can withdraw it
         return withdraw_proposal(db, proposal_id, current_user.id)
-    except (ProposalNotFoundError, ProposalOwnershipError, InvalidProposalStateError) as error:
+    except (
+        ProposalNotFoundError,
+        ProposalOwnershipError,
+        InvalidProposalStateError,
+    ) as error:
         _raise_proposal_http_error(error)
+
+
+@router.post("/{proposal_id}/accept", response_model=ContractOut)
+def accept_proposal_endpoint(
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    try:
+        # only the project owner can accept proposals for their project
+        return accept_proposal(db, proposal_id, current_user.id)
+    except (
+        ContractProposalNotFoundError,
+        ContractInvalidProposalStateError,
+        ContractProjectOwnershipError,
+        ProjectAlreadyContractedError,
+    ) as error:
+        if isinstance(error, ContractProposalNotFoundError):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found"
+            )
+        if isinstance(error, ContractProjectOwnershipError):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not the project owner"
+            )
+        if isinstance(error, ContractInvalidProposalStateError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Proposal is not in a state that can be accepted",
+            )
+        if isinstance(error, ProjectAlreadyContractedError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Project already has an active contract",
+            )
+        raise error

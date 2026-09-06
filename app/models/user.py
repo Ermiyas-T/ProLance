@@ -19,6 +19,8 @@ class User(Base):
     __tablename__: str = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # retain an account-level identity independent of role-specific public profiles
+    full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     # email is unique + indexed so lookups and the duplicate check are fast
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     # never store plaintext; only the bcrypt hash of the password

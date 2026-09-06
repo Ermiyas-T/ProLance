@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserLogin, UserOut
-from app.services.user_service import create_user, get_user_by_email
+from app.services.user_service import UserAlreadyExistsError, create_user, get_user_by_email
 
 # group all /auth routes under one router mounted into the app
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -14,19 +14,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(data: UserCreate, db: Session = Depends(get_db)):
-    # reject a duplicate email up front for a friendly error message
-    if get_user_by_email(db, data.email):
+    try:
+        # the service owns both the duplicate check and transaction-safe user creation
+        return create_user(db, data)
+    except UserAlreadyExistsError:
+        # use conflict because this email clashes with an existing account resource
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
-    return create_user(db, data)
 
 
 @router.post("/login", response_model=Token)
 def login(data: UserLogin, db: Session = Depends(get_db)):
     # find the user and verify the supplied password against the stored hash
     user = get_user_by_email(db, data.email)
-    if not user or not verify_password(data.password, user.hashed_password):
+    # use one generic response so account status is not disclosed to attackers
+    if not user or not user.is_active or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

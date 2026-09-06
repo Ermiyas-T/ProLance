@@ -1,5 +1,5 @@
-from sqlalchemy import Select, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Select, func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.project import Project, ProjectStatus
 from app.models.proposal import Proposal, ProposalStatus
@@ -44,7 +44,26 @@ class ProjectNotFoundError(Exception):
 
 # retrieve a proposal by primary key
 def get_proposal(db: Session, proposal_id: int) -> Proposal | None:
-    return db.get(Proposal, proposal_id)
+    # select by primary key with project relationship for authorization checks
+    statement = (
+        select(Proposal)
+        .options(selectinload(Proposal.project))
+        .where(Proposal.id == proposal_id)
+    )
+    return db.scalar(statement)
+
+
+# retrieve a proposal and verify the requester is either the freelancer or the project owner
+def get_authorized_proposal(db: Session, proposal_id: int, user_id: int) -> Proposal:
+    proposal = get_proposal(db, proposal_id)
+    if proposal is None:
+        raise ProposalNotFoundError
+
+    # allow both the bidder and the project owner to view the proposal details
+    if proposal.freelancer_id != user_id and proposal.project.owner_id != user_id:
+        raise ProposalOwnershipError
+
+    return proposal
 
 
 # retrieve a project by primary key
@@ -113,8 +132,10 @@ def _get_owned_proposal(db: Session, proposal_id: int, freelancer_id: int) -> Pr
     return proposal
 
 
-# list all proposals for a specific project (only for project owner)
-def list_proposals_for_project(db: Session, project_id: int, owner_id: int) -> list[Proposal]:
+# list proposals for a specific project with pagination (only for project owner)
+def list_proposals_for_project(
+    db: Session, project_id: int, owner_id: int, page: int = 1, page_size: int = 20
+) -> tuple[list[Proposal], int]:
     # verify the project exists and belongs to the requester
     project = _get_project(db, project_id)
     if project is None:
@@ -122,15 +143,47 @@ def list_proposals_for_project(db: Session, project_id: int, owner_id: int) -> l
     if project.owner_id != owner_id:
         raise ProposalOwnershipError
 
-    # return all proposals for this project
+    # build the query once so count and results stay consistent
     statement = select(Proposal).where(Proposal.project_id == project_id)
-    return list(db.scalars(statement).all())
+    count_statement = (
+        select(func.count())
+        .select_from(Proposal)
+        .where(Proposal.project_id == project_id)
+    )
+
+    # apply pagination at the database level to avoid loading huge result sets into memory
+    total = db.scalar(count_statement) or 0
+    proposals = list(
+        db.scalars(
+            statement.order_by(Proposal.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+    )
+    return proposals, total
 
 
-# list all proposals submitted by a specific freelancer
-def list_proposals_by_freelancer(db: Session, freelancer_id: int) -> list[Proposal]:
+# list all proposals submitted by a specific freelancer with pagination
+def list_proposals_by_freelancer(
+    db: Session, freelancer_id: int, page: int = 1, page_size: int = 20
+) -> tuple[list[Proposal], int]:
     statement = select(Proposal).where(Proposal.freelancer_id == freelancer_id)
-    return list(db.scalars(statement).all())
+    count_statement = (
+        select(func.count())
+        .select_from(Proposal)
+        .where(Proposal.freelancer_id == freelancer_id)
+    )
+
+    # cap the database result window based on requested page
+    total = db.scalar(count_statement) or 0
+    proposals = list(
+        db.scalars(
+            statement.order_by(Proposal.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+    )
+    return proposals, total
 
 
 # withdraw a pending proposal (only by the freelancer who submitted it)

@@ -29,11 +29,12 @@ from app.services.project_service import (
     update_project,
 )
 from app.services.proposal_service import (
-    ProposalOwnershipError,
     ProjectNotFoundError as ProposalProjectNotFoundError,
+)
+from app.services.proposal_service import (
+    ProposalOwnershipError,
     list_proposals_for_project,
 )
-
 
 # expose client project actions and public marketplace discovery under one resource router
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -42,16 +43,23 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 # convert project-domain failures into stable, safe HTTP responses at the API boundary
 def _raise_project_http_error(error: Exception) -> None:
     if isinstance(error, ProjectNotFoundError):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
     if isinstance(error, ProjectOwnershipError):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the project owner")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not the project owner"
+        )
     if isinstance(error, InvalidProjectStateError):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Project action is not allowed in its current status",
         )
     if isinstance(error, InvalidProjectSkillError):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="One or more skills do not exist")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="One or more skills do not exist",
+        )
     raise error
 
 
@@ -97,13 +105,17 @@ def list_projects_endpoint(
             sort_by=sort_by,
         )
     except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        )
 
     # keep response pagination metadata aligned with the exact filtered query
     projects, total = list_projects(db, filters, page, page_size)
     # convert SQLAlchemy models to Pydantic models for type safety
     project_outs = [ProjectOut.model_validate(project) for project in projects]
-    return ProjectListOut(items=project_outs, total=total, page=page, page_size=page_size)
+    return ProjectListOut(
+        items=project_outs, total=total, page=page, page_size=page_size
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -111,7 +123,9 @@ def get_project_endpoint(project_id: int, db: Session = Depends(get_db)):
     # load project requirements before deciding whether this anonymous request may view them
     project = get_project(db, project_id)
     if project is None or project.status != ProjectStatus.OPEN:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
     return project
 
 
@@ -143,7 +157,11 @@ def publish_project_endpoint(
     try:
         # expose publication as an explicit state action rather than a writable status field
         return publish_project(db, project_id, current_user.id)
-    except (ProjectNotFoundError, ProjectOwnershipError, InvalidProjectStateError) as error:
+    except (
+        ProjectNotFoundError,
+        ProjectOwnershipError,
+        InvalidProjectStateError,
+    ) as error:
         _raise_project_http_error(error)
 
 
@@ -156,7 +174,11 @@ def cancel_project_endpoint(
     try:
         # expose cancellation as an explicit state action with service-enforced legal states
         return cancel_project(db, project_id, current_user.id)
-    except (ProjectNotFoundError, ProjectOwnershipError, InvalidProjectStateError) as error:
+    except (
+        ProjectNotFoundError,
+        ProjectOwnershipError,
+        InvalidProjectStateError,
+    ) as error:
         _raise_project_http_error(error)
 
 
@@ -169,24 +191,24 @@ def list_project_proposals_endpoint(
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
     try:
-        # only the project owner can view proposals for their project
-        all_proposals = list_proposals_for_project(db, project_id, current_user.id)
-
-        # apply pagination to the results
-        total = len(all_proposals)
-        start = (page - 1) * page_size
-        end = start + page_size
-        paginated_proposals = all_proposals[start:end]
+        # service enforces that only the project owner can view these proposals
+        proposals, total = list_proposals_for_project(
+            db, project_id, current_user.id, page, page_size
+        )
 
         # convert SQLAlchemy models to Pydantic models for type safety
-        proposal_outs = [ProposalOut.model_validate(proposal) for proposal in paginated_proposals]
+        proposal_outs = [ProposalOut.model_validate(p) for p in proposals]
 
         return ProposalListOut(
             items=proposal_outs, total=total, page=page, page_size=page_size
         )
     except (ProposalProjectNotFoundError, ProposalOwnershipError) as error:
         if isinstance(error, ProposalProjectNotFoundError):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+            )
         if isinstance(error, ProposalOwnershipError):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the project owner")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not the project owner"
+            )
         raise error
