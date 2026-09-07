@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -30,7 +30,7 @@ class Task(Base):
     # brief summary of what needs to be done
     title: Mapped[str] = mapped_column(nullable=False)
     # optional detailed description of the task
-    description: Mapped[str | None] = mapped_column(nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # status transitions only through service actions, never direct request input
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus), default=TaskStatus.TODO, nullable=False
