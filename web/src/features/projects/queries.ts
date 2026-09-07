@@ -2,7 +2,12 @@
 // (Architecture.md §3.2).
 
 import { queryOptions } from "@tanstack/react-query";
-import { fetchClientProjects, fetchProjects, fetchProject } from "./api";
+import {
+  fetchClientProject,
+  fetchClientProjects,
+  fetchProjects,
+  fetchProject,
+} from "./api";
 import type { ProjectFilters } from "./types";
 
 export const projectKeys = {
@@ -12,6 +17,7 @@ export const projectKeys = {
   clients: () => [...projectKeys.all, "client"] as const,
   client: (page: number, page_size: number) =>
     [...projectKeys.clients(), { page, page_size }] as const,
+  clientDetail: (id: number) => [...projectKeys.clients(), "detail", id] as const,
   details: () => [...projectKeys.all, "detail"] as const,
   detail: (id: number) => [...projectKeys.details(), id] as const,
 };
@@ -34,4 +40,11 @@ export const clientProjectsOptions = (page = 1, page_size = 20) =>
   queryOptions({
     queryKey: projectKeys.client(page, page_size),
     queryFn: () => fetchClientProjects(page, page_size),
+  });
+
+// Fetches a single client-owned project by ID (any status)
+export const clientProjectDetailOptions = (id: number) =>
+  queryOptions({
+    queryKey: projectKeys.clientDetail(id),
+    queryFn: () => fetchClientProject(id),
   });

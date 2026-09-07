@@ -59,3 +59,19 @@ export function publishProject(id: number): Promise<Project> {
     method: "POST",
   });
 }
+
+// GET /projects/mine/{id} — client's own project detail (any status)
+export function fetchClientProject(id: number): Promise<Project> {
+  return apiFetch<Project>(`/projects/mine/${id}`);
+}
+
+// PUT /projects/{id} — update a draft project
+export function updateProject(
+  id: number,
+  data: Partial<ProjectCreateRequest>,
+): Promise<Project> {
+  return apiFetch<Project>(`/projects/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}

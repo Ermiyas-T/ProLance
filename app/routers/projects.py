@@ -21,6 +21,7 @@ from app.services.project_service import (
     InvalidProjectStateError,
     ProjectNotFoundError,
     ProjectOwnershipError,
+    _get_owned_project,
     cancel_project,
     create_project,
     get_project,
@@ -77,6 +78,19 @@ def list_my_projects_endpoint(
     return ProjectListOut(
         items=project_outs, total=total, page=page, page_size=page_size
     )
+
+
+@router.get("/mine/{project_id}", response_model=ProjectOut)
+def get_my_project_endpoint(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    try:
+        # ownership check is enforced inside _get_owned_project
+        return _get_owned_project(db, project_id, current_user.id)
+    except (ProjectNotFoundError, ProjectOwnershipError) as error:
+        _raise_project_http_error(error)
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
