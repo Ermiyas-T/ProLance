@@ -173,3 +173,21 @@ def list_projects(
     total = int(db.scalar(count_statement) or 0)
     projects = list(db.scalars(statement).all())
     return projects, total
+
+
+# return all projects owned by a specific client across every lifecycle state
+def list_client_projects(
+    db: Session, owner_id: int, page: int, page_size: int
+) -> tuple[list[Project], int]:
+    # base query scoped to the authenticated client's ownership
+    statement = select(Project).where(Project.owner_id == owner_id)
+    count_statement = select(func.count()).select_from(Project).where(Project.owner_id == owner_id)
+
+    # newest first for the client dashboard
+    statement = statement.order_by(Project.created_at.desc())
+    # eager-load skills in one additional query and cap the database result window
+    statement = statement.options(selectinload(Project.skills)).offset((page - 1) * page_size).limit(page_size)
+
+    total = int(db.scalar(count_statement) or 0)
+    projects = list(db.scalars(statement).all())
+    return projects, total

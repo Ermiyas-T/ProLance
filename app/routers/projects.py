@@ -24,6 +24,7 @@ from app.services.project_service import (
     cancel_project,
     create_project,
     get_project,
+    list_client_projects,
     list_projects,
     publish_project,
     update_project,
@@ -61,6 +62,21 @@ def _raise_project_http_error(error: Exception) -> None:
             detail="One or more skills do not exist",
         )
     raise error
+
+
+@router.get("/mine", response_model=ProjectListOut)
+def list_my_projects_endpoint(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    # return every project owned by this client, regardless of lifecycle state
+    projects, total = list_client_projects(db, current_user.id, page, page_size)
+    project_outs = [ProjectOut.model_validate(project) for project in projects]
+    return ProjectListOut(
+        items=project_outs, total=total, page=page, page_size=page_size
+    )
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)

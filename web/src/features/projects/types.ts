@@ -11,3 +11,13 @@ export interface ProjectFilters extends PaginationParams {
   search?: string;
   sort_by?: "created_at" | "budget" | "deadline";
 }
+
+// POST /projects body
+export interface ProjectCreateRequest {
+  title: string;
+  description: string;
+  budget: string;
+  currency: string;
+  deadline: string; // ISO datetime
+  skill_ids: number[];
+}

@@ -3,7 +3,7 @@
 import { apiFetch } from "@/lib/api-client";
 import type { PaginatedResponse } from "@/lib/pagination";
 import type { Project } from "@/types/entities";
-import type { ProjectFilters } from "./types";
+import type { ProjectCreateRequest, ProjectFilters } from "./types";
 
 // Build query string from filters
 function toQueryString(filters: ProjectFilters): string {
@@ -30,4 +30,32 @@ export function fetchProjects(
 // GET /projects/{id} — single project detail
 export function fetchProject(id: number): Promise<Project> {
   return apiFetch<Project>(`/projects/${id}`);
+}
+
+// GET /projects/mine — client's own projects (all statuses)
+export function fetchClientProjects(
+  page = 1,
+  page_size = 20,
+): Promise<PaginatedResponse<Project>> {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("page_size", String(page_size));
+  return apiFetch<PaginatedResponse<Project>>(
+    `/projects/mine?${params.toString()}`,
+  );
+}
+
+// POST /projects — create a new draft project
+export function createProject(data: ProjectCreateRequest): Promise<Project> {
+  return apiFetch<Project>("/projects", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// POST /projects/{id}/publish — publish a draft to the marketplace
+export function publishProject(id: number): Promise<Project> {
+  return apiFetch<Project>(`/projects/${id}/publish`, {
+    method: "POST",
+  });
 }
