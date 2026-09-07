@@ -1,7 +1,7 @@
 "use client";
 
 // Contract workspace with tabs — Overview, Tasks, Deliverables
-// (Architecture.md §4).
+// (Architecture.md §4). Review modal opens after completion.
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -18,6 +18,8 @@ import { contractDeliverablesOptions, deliverableKeys } from "@/features/deliver
 import { submitDeliverable, approveDeliverable, requestRevision } from "@/features/deliverables/api";
 import type { DeliverableSubmitRequest, DeliverableRevisionRequest } from "@/features/deliverables/types";
 import { createDispute } from "@/features/disputes/api";
+import { createReview } from "@/features/reviews/api";
+import type { ReviewCreateRequest } from "@/features/reviews/types";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -45,6 +47,7 @@ export default function ContractWorkspacePage() {
   }
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [showReview, setShowReview] = useState(false);
 
   const { data: contract, isLoading: contractLoading } = useQuery(
     contractDetailOptions(contractId),
@@ -146,6 +149,7 @@ export default function ContractWorkspacePage() {
             contract={contract}
             isClient={isClient}
             contractId={contractId}
+            onComplete={() => setShowReview(true)}
           />
         )}
         {activeTab === "tasks" && (
@@ -162,6 +166,15 @@ export default function ContractWorkspacePage() {
           />
         )}
       </main>
+
+      {/* Review modal — opens after contract completion */}
+      {showReview && contract && (
+        <ReviewModal
+          contractId={contractId}
+          otherPartyId={isClient ? contract.freelancer_id : contract.client_id}
+          onClose={() => setShowReview(false)}
+        />
+      )}
     </div>
   );
 }
@@ -172,10 +185,12 @@ function OverviewTab({
   contract,
   isClient,
   contractId,
+  onComplete,
 }: {
   contract: Contract;
   isClient: boolean;
   contractId: number;
+  onComplete: () => void;
 }) {
   const queryClient = useQueryClient();
   const [showDispute, setShowDispute] = useState(false);
@@ -187,6 +202,7 @@ function OverviewTab({
     mutationFn: () => completeContract(contractId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contractKeys.detail(contractId) });
+      onComplete();
     },
   });
 
@@ -696,6 +712,201 @@ function DeliverablesTab({
           <div className="text-center py-8 bg-card rounded-lg border border-border">
             <p className="text-muted-foreground">No deliverables yet.</p>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Review Modal ---
+
+function ReviewModal({
+  contractId,
+  otherPartyId,
+  onClose,
+}: {
+  contractId: number;
+  otherPartyId: number;
+  onClose: () => void;
+}) {
+  const [overall, setOverall] = useState(0);
+  const [communication, setCommunication] = useState(0);
+  const [quality, setQuality] = useState(0);
+  const [timeliness, setTimeliness] = useState(0);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submitMutation = useMutation({
+    mutationFn: (data: ReviewCreateRequest) => createReview(data),
+    onSuccess: () => {
+      setSubmitted(true);
+    },
+    onError: (err: ApiError) => {
+      setError(err.message || "Failed to submit review.");
+    },
+  });
+
+  const handleSubmit = () => {
+    if (overall === 0) {
+      setError("Please select an overall rating.");
+      return;
+    }
+    setError(null);
+    submitMutation.mutate({
+      contract_id: contractId,
+      rating_overall: overall,
+      rating_communication: communication || null,
+      rating_quality: quality || null,
+      rating_timeliness: timeliness || null,
+      comment: comment.trim(),
+    });
+  };
+
+  if (submitted) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-card rounded-lg border border-border p-6 max-w-sm w-full mx-4 text-center">
+          <p className="text-lg font-medium text-foreground mb-2">Review submitted</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Thank you for your feedback.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-card rounded-lg border border-border p-6 max-w-md w-full mx-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-foreground">Leave a review</h2>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Rate your experience with the other party.
+        </p>
+
+        {/* Overall rating */}
+        <StarRating
+          label="Overall"
+          value={overall}
+          onChange={setOverall}
+          required
+        />
+
+        {/* Dimension ratings */}
+        <StarRating
+          label="Communication"
+          value={communication}
+          onChange={setCommunication}
+        />
+        <StarRating
+          label="Quality of work"
+          value={quality}
+          onChange={setQuality}
+        />
+        <StarRating
+          label="Timeliness"
+          value={timeliness}
+          onChange={setTimeliness}
+        />
+
+        {/* Comment */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Comment
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Share your experience..."
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+          />
+        </div>
+
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
+
+        <div className="flex gap-2 justify-end pt-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={overall === 0 || submitMutation.isPending}
+            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {submitMutation.isPending ? "Submitting…" : "Submit review"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Star Rating Component ---
+
+function StarRating({
+  label,
+  value,
+  onChange,
+  required = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  required?: boolean;
+}) {
+  const [hover, setHover] = useState(0);
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1">
+        {label} {required && <span className="text-destructive">*</span>}
+      </label>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            onMouseEnter={() => setHover(star)}
+            onMouseLeave={() => setHover(0)}
+            className="text-2xl leading-none transition-colors"
+          >
+            <span
+              className={
+                star <= (hover || value)
+                  ? "text-yellow-500"
+                  : "text-muted-foreground/30"
+              }
+            >
+              ★
+            </span>
+          </button>
+        ))}
+        {value > 0 && (
+          <span className="text-sm text-muted-foreground ml-2 self-center">
+            {value}/5
+          </span>
         )}
       </div>
     </div>
