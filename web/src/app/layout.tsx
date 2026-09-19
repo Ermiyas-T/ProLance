@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { Providers } from "./providers";
-import { ReauthModal } from "@/features/auth/reauth-modal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +19,7 @@ export const metadata: Metadata = {
   description: "Freelancer marketplace frontend",
 };
 
-// Root layout hosts fonts, the silent re-auth modal, and global providers.
+// Root layout hosts fonts and global providers.
 // Theme is handled via CSS (prefers-color-scheme) for the initial paint,
 // then ThemeProvider's useEffect applies the user's stored preference.
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -31,10 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Providers>
-          <ReauthModal />
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
