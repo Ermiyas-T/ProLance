@@ -14,7 +14,6 @@ import { updateProject } from "@/features/projects/api";
 import { projectKeys } from "@/features/projects/queries";
 import { fetchSkills } from "@/features/profiles/api";
 import { ApiError } from "@/lib/api-client";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD"];
 
@@ -23,12 +22,7 @@ export default function EditProjectPage() {
   const projectId = Number(params.projectId);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
-
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  const { user } = useSession();
 
   const { data: project, isLoading: projectLoading } = useQuery(
     clientProjectDetailOptions(projectId),
@@ -81,6 +75,10 @@ export default function EditProjectPage() {
     },
   });
 
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER
+  // all hooks (rules-of-hooks).
+  if (!user) return null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -122,11 +120,7 @@ export default function EditProjectPage() {
 
   if (projectLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
           <div className="space-y-4">
             <div className="h-8 w-64 bg-muted rounded animate-pulse" />
@@ -140,11 +134,7 @@ export default function EditProjectPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
           <div className="text-center py-12 bg-card rounded-lg border border-border">
             <p className="text-muted-foreground">Project not found.</p>
@@ -158,20 +148,7 @@ export default function EditProjectPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">Edit project</h1>

@@ -13,19 +13,16 @@ import { createProposal } from "@/features/proposals/api";
 import { proposalKeys } from "@/features/proposals/queries";
 import { ApiError } from "@/lib/api-client";
 import { formatMoney, formatDate } from "@/lib/format";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 export default function MarketplaceProjectPage() {
   const router = useRouter();
   const params = useParams<{ projectId: string }>();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
   const projectId = Number(params.projectId);
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  // AppLayout ensures user is non-null before rendering
+  if (!user) return null;
 
   if (isNaN(projectId)) {
     router.replace("/marketplace");
@@ -33,20 +30,7 @@ export default function MarketplaceProjectPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <button onClick={() => router.back()} className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </button>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
         <ProjectDetail projectId={projectId} userRole={user.role} />
       </main>

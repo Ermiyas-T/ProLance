@@ -6,14 +6,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useSession } from "@/app/providers";
 import { projectListOptions, projectDetailOptions } from "@/features/projects/queries";
 import { skillsOptions } from "@/features/profiles/queries";
 import { formatMoney, formatDate } from "@/lib/format";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 const SORT_OPTIONS = [
   { value: "created_at", label: "Newest" },
@@ -27,18 +26,14 @@ export default function MarketplacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
-  // Redirect clients to /projects
-  if (isAuthenticated && user?.role === "CLIENT") {
-    router.replace("/projects");
-    return null;
-  }
-
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  // Redirect clients to /projects safely via useEffect
+  useEffect(() => {
+    if (user?.role === "CLIENT") {
+      router.replace("/projects");
+    }
+  }, [user, router]);
 
   // Filter state from URL params
   const search = searchParams.get("search") ?? "";
@@ -76,6 +71,10 @@ export default function MarketplacePage() {
     [],
   );
 
+  // AppLayout ensures user is non-null before rendering; non-client users
+  // are redirected above. Guard lives AFTER all hooks (rules-of-hooks).
+  if (!user || user.role === "CLIENT") return null;
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     router.push(buildUrl({ search: searchInput, skill, sort_by: sortBy, page: "1" }));
@@ -94,20 +93,7 @@ export default function MarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground">Marketplace</h1>

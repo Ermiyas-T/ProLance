@@ -15,7 +15,6 @@ import { acceptProposal } from "@/features/proposals/api";
 import { publishProject } from "@/features/projects/api";
 import { projectKeys } from "@/features/projects/queries";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatMoney, formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
 import type { Proposal } from "@/types/entities";
@@ -27,12 +26,7 @@ export default function ProjectDetailPage() {
   const projectId = Number(params.projectId);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
-
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  const { user } = useSession();
 
   const { data: project, isLoading: projectLoading } = useQuery(
     clientProjectDetailOptions(projectId),
@@ -53,13 +47,13 @@ export default function ProjectDetailPage() {
     },
   });
 
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER
+  // all hooks (rules-of-hooks).
+  if (!user) return null;
+
   if (projectLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
           <div className="space-y-4">
             <div className="h-8 w-64 bg-muted rounded animate-pulse" />
@@ -73,11 +67,7 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
           <div className="text-center py-12 bg-card rounded-lg border border-border">
             <p className="text-muted-foreground">Project not found.</p>
@@ -94,20 +84,7 @@ export default function ProjectDetailPage() {
   const isOpen = project.status === "OPEN";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
         {/* Project header */}
         <div className="mb-6">
