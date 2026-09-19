@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { register as apiRegister } from "@/features/auth/api";
 import { useSession } from "@/app/providers";
@@ -18,18 +18,21 @@ export default function RegisterPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useSession();
 
-  // Redirect immediately if already authenticated
-  if (isAuthenticated) {
-    router.replace("/dashboard");
-    return null;
-  }
-
   const [role, setRole] = useState<Extract<Role, "CLIENT" | "FREELANCER">>("FREELANCER");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // redirect authenticated users away to /dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, router]);
+
+  if (isAuthenticated) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
