@@ -9,19 +9,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/app/providers";
 import { freelancerProfileOptions } from "@/features/profiles/queries";
 import { userReviewsOptions, userAverageRatingOptions } from "@/features/reviews/queries";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 export default function FreelancerProfilePage() {
   const router = useRouter();
   const params = useParams<{ userId: string }>();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
   const userId = Number(params.userId);
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  // AppLayout ensures user is non-null before rendering
+  if (!user) return null;
 
   if (isNaN(userId)) {
     router.replace("/dashboard");
@@ -29,20 +26,7 @@ export default function FreelancerProfilePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <button onClick={() => router.back()} className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </button>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
         <FreelancerProfile userId={userId} />
       </main>

@@ -1,6 +1,6 @@
 // Typed fetchers for profiles, skills, and portfolio (Architecture.md §3.3).
 
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import type { ClientProfile, FreelancerProfile, Skill } from "@/types/entities";
 import type {
   ClientProfileCreateRequest,
@@ -30,8 +30,14 @@ export function createClientProfile(
 }
 
 // GET /profiles/client/me — get own client profile
-export function fetchMyClientProfile(): Promise<ClientProfile> {
-  return apiFetch<ClientProfile>("/profiles/client/me");
+// Returns null when the profile hasn't been created yet (404).
+export async function fetchMyClientProfile(): Promise<ClientProfile | null> {
+  try {
+    return await apiFetch<ClientProfile>("/profiles/client/me");
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 // PUT /profiles/client/me — update own client profile
@@ -57,8 +63,14 @@ export function createFreelancerProfile(
 }
 
 // GET /profiles/freelancer/me — get own freelancer profile
-export function fetchMyFreelancerProfile(): Promise<FreelancerProfile> {
-  return apiFetch<FreelancerProfile>("/profiles/freelancer/me");
+// Returns null when the profile hasn't been created yet (404).
+export async function fetchMyFreelancerProfile(): Promise<FreelancerProfile | null> {
+  try {
+    return await apiFetch<FreelancerProfile>("/profiles/freelancer/me");
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 // PUT /profiles/freelancer/me — update own freelancer profile

@@ -4,12 +4,11 @@
 // Client: display_name, bio, location, avatar_url.
 // Freelancer: professional_title, bio, hourly_rate, skills (add/remove), portfolio items.
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useSession } from "@/app/providers";
 import { ApiError } from "@/lib/api-client";
+import { useSession } from "@/app/providers";
 import {
   myClientProfileOptions,
   myFreelancerProfileOptions,
@@ -25,7 +24,6 @@ import {
   addPortfolioItem,
 } from "@/features/profiles/api";
 import { profileKeys } from "@/features/profiles/queries";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import type { Skill } from "@/types/entities";
 import type {
   ClientProfileCreateRequest,
@@ -34,29 +32,13 @@ import type {
 } from "@/features/profiles/types";
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  // AppLayout ensures user is non-null before rendering
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <button onClick={() => router.back()} className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </button>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
         <h1 className="text-2xl font-bold text-foreground mb-2">Your profile</h1>
         <p className="text-sm text-muted-foreground mb-8">
