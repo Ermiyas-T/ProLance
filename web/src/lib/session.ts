@@ -1,14 +1,19 @@
-// In-memory session store — tokens never touch localStorage (Architecture.md §2).
-// TODO: wire the full SessionProvider lifecycle (login, logout, updateUser)
-// and the event-bus store that <ReauthModal> listens to for openReauth().
+// Session store holding active auth token and user state
 import type { User } from "@/types/entities";
+import { getAuthCookie, setAuthCookie, removeAuthCookie } from "./cookies";
 
 export const session = {
-  token: null as string | null,
+  // read initial token directly from the auth cookie if available
+  token: typeof window !== "undefined" ? getAuthCookie() : null,
   user: null as User | null,
-  // called by the api-client when a 401 needs a silent re-login; the
-  // ReauthModal subscribes to this signal and resolves the pending requests
-  openReauth(): void {
-    // TODO: signal the global <ReauthModal> to open
+
+  // helper method to update the token and keep the cookie in sync
+  setToken(newToken: string | null): void {
+    this.token = newToken;
+    if (newToken) {
+      setAuthCookie(newToken);
+    } else {
+      removeAuthCookie();
+    }
   },
 };

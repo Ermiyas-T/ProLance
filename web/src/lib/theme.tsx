@@ -40,8 +40,18 @@ function getStoredTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
-  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(getSystemTheme);
+  // Start with SSR-safe defaults so the first client render matches the
+  // server — reading localStorage/matchMedia during render causes a hydration
+  // mismatch. The real preference is synced after mount; the initial visual
+  // paint is handled by CSS (prefers-color-scheme) in globals.css.
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">("light");
+
+  // Sync the stored preference and current system theme once mounted.
+  useEffect(() => {
+    setThemeState(getStoredTheme());
+    setSystemTheme(getSystemTheme());
+  }, []);
 
   // Listen for system preference changes
   useEffect(() => {
