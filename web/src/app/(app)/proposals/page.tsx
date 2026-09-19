@@ -14,7 +14,6 @@ import { ownProposalsOptions, proposalKeys } from "@/features/proposals/queries"
 import { withdrawProposal } from "@/features/proposals/api";
 import { ApiError } from "@/lib/api-client";
 import { formatMoney, formatDate } from "@/lib/format";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import type { ProposalStatus } from "@/types/entities";
 
 const STATUS_TABS: { value: ProposalStatus | "ALL"; label: string }[] = [
@@ -35,19 +34,17 @@ const STATUS_STYLES: Record<ProposalStatus, string> = {
 const PAGE_SIZE = 20;
 
 export default function ProposalsPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
-
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  const { user } = useSession();
 
   const [activeTab, setActiveTab] = useState<ProposalStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery(ownProposalsOptions(page, PAGE_SIZE));
+
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER
+  // all hooks (rules-of-hooks).
+  if (!user) return null;
 
   // Client-side filter by status
   const allProposals = data?.items ?? [];
@@ -68,20 +65,7 @@ export default function ProposalsPage() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">My proposals</h1>
