@@ -4,8 +4,8 @@
 // (Architecture.md §4). Review modal opens after completion.
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useSession } from "@/app/providers";
@@ -21,7 +21,6 @@ import { createDispute } from "@/features/disputes/api";
 import { createReview } from "@/features/reviews/api";
 import type { ReviewCreateRequest } from "@/features/reviews/types";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatMoney, formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
 import type { Contract, Task, Deliverable, TaskStatus } from "@/types/entities";
@@ -38,28 +37,35 @@ export default function ContractWorkspacePage() {
   const params = useParams();
   const contractId = Number(params.contractId);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
+  // initialize active tab state from URL query parameter (tab=tasks | tab=deliverables | tab=overview)
+  const tabParam = searchParams.get("tab");
+  const initialTab: Tab = tabParam === "tasks" || tabParam === "deliverables" ? tabParam : "overview";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  // synchronize activeTab state when query parameter changes
+  useEffect(() => {
+    if (tabParam === "tasks" || tabParam === "deliverables" || tabParam === "overview") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   const [showReview, setShowReview] = useState(false);
 
   const { data: contract, isLoading: contractLoading } = useQuery(
     contractDetailOptions(contractId),
   );
 
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER
+  // all hooks (rules-of-hooks).
+  if (!user) return null;
+
   if (contractLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
           <div className="space-y-4">
             <div className="h-8 w-64 bg-muted rounded animate-pulse" />
@@ -72,11 +78,7 @@ export default function ContractWorkspacePage() {
 
   if (!contract) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
           <div className="text-center py-12 bg-card rounded-lg border border-border">
             <p className="text-muted-foreground">Contract not found.</p>
@@ -93,20 +95,7 @@ export default function ContractWorkspacePage() {
   const isActive = contract.status === "ACTIVE";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
