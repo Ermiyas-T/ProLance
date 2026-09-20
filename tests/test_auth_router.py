@@ -251,3 +251,85 @@ def test_me_returns_account_name_after_login(
     assert login_response.status_code == 200
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == registration_payload["full_name"]
+
+
+def test_change_password_success_and_invalid_current_password(
+    client: TestClient, registration_payload: dict[str, str]
+):
+    # register a user and log in to get access token
+    client.post("/auth/register", json=registration_payload)
+    login_res = client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # test incorrect current password
+    wrong_pwd_res = client.patch(
+        "/auth/me/password",
+        headers=headers,
+        json={"current_password": "wrong-password", "new_password": "new-secure-password"},
+    )
+    assert wrong_pwd_res.status_code == 400
+    assert wrong_pwd_res.json()["detail"] == "Current password is incorrect"
+
+    # test successful password change
+    success_pwd_res = client.patch(
+        "/auth/me/password",
+        headers=headers,
+        json={"current_password": registration_payload["password"], "new_password": "new-secure-password"},
+    )
+    assert success_pwd_res.status_code == 204
+
+    # test logging in with old password fails
+    old_login_res = client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    assert old_login_res.status_code == 401
+
+    # test logging in with new password succeeds
+    new_login_res = client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": "new-secure-password"},
+    )
+    assert new_login_res.status_code == 200
+
+
+def test_deactivate_account_success(
+    client: TestClient, registration_payload: dict[str, str]
+):
+    # register a user and log in to get access token
+    client.post("/auth/register", json=registration_payload)
+    login_res = client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # test wrong password for deactivation
+    wrong_deactivate_res = client.post(
+        "/auth/me/deactivate",
+        headers=headers,
+        json={"password": "wrong-password"},
+    )
+    assert wrong_deactivate_res.status_code == 400
+    assert wrong_deactivate_res.json()["detail"] == "Incorrect password"
+
+    # test successful deactivation
+    deactivate_res = client.post(
+        "/auth/me/deactivate",
+        headers=headers,
+        json={"password": registration_payload["password"]},
+    )
+    assert deactivate_res.status_code == 204
+
+    # test deactivated user can no longer log in
+    after_deactivate_login = client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    assert after_deactivate_login.status_code == 401
+

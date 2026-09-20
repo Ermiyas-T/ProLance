@@ -5,8 +5,15 @@ from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserOut
-from app.services.user_service import UserAlreadyExistsError, create_user, get_user_by_email
+from app.schemas.user import AccountDeactivation, PasswordChange, Token, UserCreate, UserLogin, UserOut
+from app.services.user_service import (
+    InvalidPasswordError,
+    UserAlreadyExistsError,
+    change_password,
+    create_user,
+    deactivate_account,
+    get_user_by_email,
+)
 
 # group all /auth routes under one router mounted into the app
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -43,3 +50,38 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
 def read_me(current_user: User = Depends(get_current_user)):
     # the dependency already authenticated us; return the current user
     return current_user
+
+
+@router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_my_password(
+    data: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        # change the user's password safely via the user_service
+        change_password(db, current_user, data.current_password, data.new_password)
+    except InvalidPasswordError:
+        # return 400 bad request if the current password is incorrect
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+
+@router.post("/me/deactivate", status_code=status.HTTP_204_NO_CONTENT)
+def deactivate_my_account(
+    data: AccountDeactivation,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        # deactivate the user's account safely via the user_service
+        deactivate_account(db, current_user, data.password)
+    except InvalidPasswordError:
+        # return 400 bad request if the confirmation password is incorrect
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect password",
+        )
+

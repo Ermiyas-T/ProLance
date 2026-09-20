@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 
@@ -10,6 +10,12 @@ from app.schemas.user import UserCreate
 # represents the safe duplicate-account outcome without coupling services to HTTP
 class UserAlreadyExistsError(Exception):
     # keep duplicate account handling explicit without exposing persistence details
+    pass
+
+
+# represents password mismatch during security mutations
+class InvalidPasswordError(Exception):
+    # raised when current password does not match during password change or account deactivation
     pass
 
 
@@ -48,3 +54,26 @@ def create_user(db: Session, data: UserCreate) -> User:
         raise
     db.refresh(user)
     return user
+
+
+def change_password(db: Session, user: User, current_password: str, new_password: str) -> None:
+    # verify that the user's current password matches before replacing it
+    if not verify_password(current_password, user.hashed_password):
+        raise InvalidPasswordError
+
+    # update the hashed_password column with the new hashed password
+    user.hashed_password = hash_password(new_password)
+    # persist the password change to the database
+    db.commit()
+
+
+def deactivate_account(db: Session, user: User, password: str) -> None:
+    # verify that the user's password matches before deactivating the account
+    if not verify_password(password, user.hashed_password):
+        raise InvalidPasswordError
+
+    # mark the user account as inactive
+    user.is_active = False
+    # persist the deactivation to the database
+    db.commit()
+
