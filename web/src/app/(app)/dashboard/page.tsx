@@ -13,32 +13,15 @@ import { useSession } from "@/app/providers";
 import { projectListOptions } from "@/features/projects/queries";
 import { ownProposalsOptions } from "@/features/proposals/queries";
 import { openDisputesOptions } from "@/features/disputes/queries";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 export default function DashboardPage() {
-  const { user, logout } = useSession();
+  const { user } = useSession();
 
+  // AppLayout ensures user is non-null before rendering
   if (!user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button
-            onClick={logout}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       {/* Main content */}
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
         <div className="mb-8">

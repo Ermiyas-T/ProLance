@@ -5,14 +5,13 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useSession } from "@/app/providers";
 import { disputeDetailOptions, disputeKeys } from "@/features/disputes/queries";
 import { startDisputeReview, resolveDispute } from "@/features/disputes/api";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
 
@@ -21,17 +20,14 @@ export default function AdminDisputeResolvePage() {
   const disputeId = Number(params.disputeId);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
-
-  if (user.role !== "ADMIN") {
-    router.replace("/dashboard");
-    return null;
-  }
+  // Redirect non-admin users to /dashboard
+  useEffect(() => {
+    if (user && user.role !== "ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
 
   const [resolution, setResolution] = useState("");
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -58,13 +54,13 @@ export default function AdminDisputeResolvePage() {
     },
   });
 
+  // AppLayout ensures user is non-null before rendering; non-admins are
+  // redirected above. Guard lives AFTER all hooks (rules-of-hooks).
+  if (!user || user.role !== "ADMIN") return null;
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
           <div className="space-y-4">
             <div className="h-8 w-64 bg-muted rounded animate-pulse" />
@@ -77,11 +73,7 @@ export default function AdminDisputeResolvePage() {
 
   if (!dispute) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <Link href="/dashboard" className="text-lg font-bold text-foreground">ProLance</Link>
-          <ThemeToggle />
-        </header>
+      <div className="flex flex-1 flex-col">
         <main className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
           <div className="text-center py-12 bg-card rounded-lg border border-border">
             <p className="text-muted-foreground">Dispute not found.</p>
@@ -99,20 +91,7 @@ export default function AdminDisputeResolvePage() {
   const isResolved = dispute.status === "RESOLVED";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-1">

@@ -4,46 +4,33 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useSession } from "@/app/providers";
 import { openDisputesOptions } from "@/features/disputes/queries";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatDate } from "@/lib/format";
 
 export default function AdminDisputesPage() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useSession();
+  const { user } = useSession();
 
-  if (!isAuthenticated || !user) {
-    router.replace("/login");
-    return null;
-  }
-
-  // Additional guard: only admins should see this page
-  if (user.role !== "ADMIN") {
-    router.replace("/dashboard");
-    return null;
-  }
+  // Redirect non-admin users to /dashboard
+  useEffect(() => {
+    if (user && user.role !== "ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
 
   const { data: disputes = [], isLoading } = useQuery(openDisputesOptions);
 
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link href="/dashboard" className="text-lg font-bold text-foreground hover:opacity-80 transition-opacity">
-          ProLance
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <span className="text-sm text-muted-foreground">{user.full_name}</span>
-          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER
+  // all hooks (rules-of-hooks).
+  if (!user || user.role !== "ADMIN") return null;
 
+  return (
+    <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">Dispute queue</h1>
