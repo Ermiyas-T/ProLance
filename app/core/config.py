@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # extend access token lifetime to 7 days (10080 minutes) for persistent sessions
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+    ALLOWED_ORIGINS: str = ""
 
 
 # Pydantic fills the no-default fields from .env, so no args are needed
