@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useSession } from "@/app/providers";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { PasswordInput } from "@/components/shared/password-input";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -178,48 +179,40 @@ export default function SettingsPage() {
           )}
 
           <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-2">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Current Password
-              </label>
-              <input
-                type="password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
+            <PasswordInput
+              label="Current Password"
+              labelClassName="block text-xs font-medium text-muted-foreground mb-1"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
+              <PasswordInput
+                label="New Password"
+                labelClassName="block text-xs font-medium text-muted-foreground mb-1"
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
+              <PasswordInput
+                label="Confirm New Password"
+                labelClassName="block text-xs font-medium text-muted-foreground mb-1"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter new password"
+                autoComplete="new-password"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
 
             <button
@@ -269,19 +262,16 @@ export default function SettingsPage() {
                 <p className="text-xs text-destructive font-medium">{deactivateError}</p>
               )}
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={deactivatePassword}
-                  onChange={(e) => setDeactivatePassword(e.target.value)}
-                  placeholder="Enter your current password"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
-                />
-              </div>
+              <PasswordInput
+                label="Confirm Password"
+                labelClassName="block text-xs font-medium text-muted-foreground mb-1"
+                required
+                value={deactivatePassword}
+                onChange={(e) => setDeactivatePassword(e.target.value)}
+                placeholder="Enter your current password"
+                autoComplete="current-password"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
+              />
 
               <div className="flex items-center gap-3">
                 <button

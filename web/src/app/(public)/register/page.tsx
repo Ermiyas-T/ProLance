@@ -12,6 +12,7 @@ import { register as apiRegister } from "@/features/auth/api";
 import { useSession } from "@/app/providers";
 import { ApiError } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { PasswordInput } from "@/components/shared/password-input";
 import type { Role } from "@/types/entities";
 
 export default function RegisterPage() {
@@ -172,25 +173,20 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm
-                    text-foreground placeholder:text-muted-foreground
-                    focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-                    transition-colors"
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                />
-              </div>
+              <PasswordInput
+                id="password"
+                label="Password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm
+                  text-foreground placeholder:text-muted-foreground
+                  focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
+                  transition-colors"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+              />
 
               <button
                 type="submit"
