@@ -22,14 +22,16 @@ import {
   addFreelancerSkill,
   removeFreelancerSkill,
   addPortfolioItem,
+  uploadMyAvatar,
 } from "@/features/profiles/api";
 import { profileKeys } from "@/features/profiles/queries";
-import type { Skill } from "@/types/entities";
 import type {
   ClientProfileCreateRequest,
   FreelancerProfileCreateRequest,
-  PortfolioItemCreateRequest,
 } from "@/features/profiles/types";
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const AVATAR_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 export default function ProfilePage() {
   const { user } = useSession();
@@ -58,6 +60,89 @@ export default function ProfilePage() {
   );
 }
 
+function AvatarUploader({
+  avatarUrl,
+  disabled,
+  onUploaded,
+}: {
+  avatarUrl: string | null;
+  disabled: boolean;
+  onUploaded: (avatarUrl: string) => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Release local preview memory when a new image replaces the previous preview.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const uploadMutation = useMutation({
+    mutationFn: uploadMyAvatar,
+    onSuccess: (result) => {
+      onUploaded(result.avatar_url);
+      setPreviewUrl(null);
+      setError(null);
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.detail : "Failed to upload profile photo");
+    },
+  });
+
+  // Validate early for a fast user experience before sending the file to the API.
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!AVATAR_TYPES.includes(file.type)) {
+      setError("Choose a JPEG, PNG, GIF, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      setError("Profile images must be 5 MB or smaller.");
+      return;
+    }
+
+    setError(null);
+    setPreviewUrl(URL.createObjectURL(file));
+    uploadMutation.mutate(file);
+  };
+
+  const imageUrl = previewUrl ?? avatarUrl;
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-secondary flex items-center justify-center">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="Profile preview" className="h-full w-full object-cover" />
+        ) : (
+          <svg aria-hidden="true" className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0" />
+          </svg>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">Profile photo</p>
+        <p className="text-xs text-muted-foreground mt-0.5">JPEG, PNG, GIF, or WebP up to 5 MB</p>
+        <label className={`inline-flex items-center mt-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${disabled || uploadMutation.isPending ? "bg-secondary text-muted-foreground cursor-not-allowed" : "bg-secondary text-secondary-foreground hover:bg-secondary/80 cursor-pointer"}`}>
+          {uploadMutation.isPending ? "Uploading..." : "Choose image"}
+          <input
+            type="file"
+            accept={AVATAR_TYPES.join(",")}
+            onChange={handleFileChange}
+            disabled={disabled || uploadMutation.isPending}
+            className="sr-only"
+          />
+        </label>
+        {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 // --- Client Profile Form ---
 
 function ClientProfileForm() {
@@ -73,6 +158,7 @@ function ClientProfileForm() {
   // Populate form when profile loads
   useEffect(() => {
     if (profile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate controlled fields from the loaded profile
       setDisplayName(profile.display_name);
       setBio(profile.bio ?? "");
       setLocation(profile.location ?? "");
@@ -113,6 +199,19 @@ function ClientProfileForm() {
           {error}
         </div>
       )}
+
+      <div>
+        <AvatarUploader
+          avatarUrl={avatarUrl || null}
+          disabled={!profile}
+          onUploaded={setAvatarUrl}
+        />
+        {!profile && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Save your profile first to enable photo uploads.
+          </p>
+        )}
+      </div>
 
       <div>
         <label htmlFor="displayName" className="block text-sm font-medium text-foreground mb-1.5">
@@ -192,6 +291,7 @@ function FreelancerProfileForm() {
   const [professionalTitle, setProfessionalTitle] = useState("");
   const [bio, setBio] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Portfolio form
@@ -205,9 +305,11 @@ function FreelancerProfileForm() {
   // Populate form when profile loads
   useEffect(() => {
     if (profile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate controlled fields from the loaded profile
       setProfessionalTitle(profile.professional_title ?? "");
       setBio(profile.bio ?? "");
       setHourlyRate(profile.hourly_rate);
+      setAvatarUrl(profile.avatar_url ?? "");
     }
   }, [profile]);
 
@@ -303,6 +405,17 @@ function FreelancerProfileForm() {
           <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
             {error}
           </div>
+        )}
+
+        <AvatarUploader
+          avatarUrl={avatarUrl || null}
+          disabled={!profile}
+          onUploaded={setAvatarUrl}
+        />
+        {!profile && (
+          <p className="text-xs text-muted-foreground">
+            Save your profile first to enable photo uploads.
+          </p>
         )}
 
         <div>

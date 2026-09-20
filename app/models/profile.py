@@ -79,6 +79,8 @@ class FreelancerProfile(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
     professional_title: Mapped[str | None] = mapped_column(String(100))
     bio: Mapped[str | None] = mapped_column(Text)
+    # store the safe server-generated URL for the freelancer's profile image
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
     # money is stored as fixed-precision Decimal, never a float
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     # ISO 4217 currency code for the hourly rate (ETB is the platform default)

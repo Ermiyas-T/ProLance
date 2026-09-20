@@ -83,6 +83,7 @@ def create_freelancer_profile(
         user_id=user_id,
         professional_title=data.professional_title,
         bio=data.bio,
+        avatar_url=data.avatar_url,
         hourly_rate=data.hourly_rate,
     )
     # add profile to session so relationship population during flush proceeds cleanly
@@ -127,6 +128,24 @@ def update_freelancer_profile(
         setattr(profile, field, value)
 
     # commit updates to database and refresh profile
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+# persist a validated avatar URL on the role-specific profile record
+def update_profile_avatar(
+    db: Session, user_id: int, role: str, avatar_url: str
+) -> ClientProfile | FreelancerProfile | None:
+    profile = (
+        get_client_profile(db, user_id)
+        if role == "CLIENT"
+        else get_freelancer_profile(db, user_id)
+    )
+    if not profile:
+        return None
+
+    profile.avatar_url = avatar_url
     db.commit()
     db.refresh(profile)
     return profile

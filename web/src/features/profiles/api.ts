@@ -50,6 +50,17 @@ export function updateMyClientProfile(
   });
 }
 
+// POST /profiles/me/avatar — upload a validated profile image
+export async function uploadMyAvatar(file: File): Promise<{ avatar_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiFetch<{ avatar_url: string }>("/profiles/me/avatar", {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}
+
 // --- Freelancer Profile ---
 
 // POST /profiles/freelancer — create freelancer profile

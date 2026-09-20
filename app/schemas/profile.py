@@ -79,6 +79,7 @@ class ClientProfileOut(BaseModel):
 class FreelancerProfileCreate(BaseModel):
     professional_title: str | None = Field(default=None, max_length=100)
     bio: str | None = None
+    avatar_url: str | None = Field(default=None, max_length=500)
     # hourly_rate must be greater than zero for valid monetary representation
     hourly_rate: Decimal = Field(gt=Decimal("0.00"), decimal_places=2)
     # optional list of skill names to associate during creation
@@ -89,6 +90,7 @@ class FreelancerProfileCreate(BaseModel):
 class FreelancerProfileUpdate(BaseModel):
     professional_title: str | None = Field(default=None, max_length=100)
     bio: str | None = None
+    avatar_url: str | None = Field(default=None, max_length=500)
     hourly_rate: Decimal | None = Field(default=None, gt=Decimal("0.00"), decimal_places=2)
     skills: list[str] | None = None
 
@@ -102,6 +104,7 @@ class FreelancerProfileOut(BaseModel):
     user_id: int
     professional_title: str | None = None
     bio: str | None = None
+    avatar_url: str | None = None
     hourly_rate: Decimal
     # running aggregate rating of the freelancer
     avg_rating: Decimal = Decimal("0.00")
@@ -111,3 +114,8 @@ class FreelancerProfileOut(BaseModel):
     portfolio_items: list[PortfolioItemOut] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+
+# return the public URL after a validated avatar upload
+class AvatarUploadOut(BaseModel):
+    avatar_url: str

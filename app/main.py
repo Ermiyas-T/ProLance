@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -22,6 +25,11 @@ app = FastAPI(
     description="Freelancer marketplace backend",
     version="0.1.0",
 )
+
+# serve only the server-generated public avatar files, never arbitrary project files
+uploads_directory = Path(__file__).resolve().parent.parent / "uploads"
+uploads_directory.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_directory), name="uploads")
 
 # allow the frontend origin to make browser requests to this API
 allow_origins_list = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]

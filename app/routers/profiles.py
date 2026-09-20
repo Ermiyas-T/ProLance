@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,6 +16,7 @@ from app.schemas.profile import (
     FreelancerProfileCreate,
     FreelancerProfileOut,
     FreelancerProfileUpdate,
+    AvatarUploadOut,
     PortfolioItemCreate,
     PortfolioItemOut,
     SkillOut,
@@ -27,10 +31,62 @@ from app.services.profile_service import (
     remove_skill_from_freelancer,
     update_client_profile,
     update_freelancer_profile,
+    update_profile_avatar,
 )
 
 # router grouping for profile management endpoints
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
+AVATAR_TYPES = {
+    "image/jpeg": (b"\xff\xd8\xff", ".jpg"),
+    "image/png": (b"\x89PNG\r\n\x1a\n", ".png"),
+    "image/gif": (b"GIF8", ".gif"),
+    "image/webp": (b"RIFF", ".webp"),
+}
+AVATAR_DIRECTORY = Path(__file__).resolve().parent.parent.parent / "uploads" / "avatars"
+
+
+# validate declared and actual image content before it reaches public storage
+def _validate_avatar(data: bytes, content_type: str | None) -> str:
+    if content_type not in AVATAR_TYPES:
+        raise HTTPException(status_code=415, detail="Use a JPEG, PNG, GIF, or WebP image")
+    if len(data) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Profile images must be 5 MB or smaller")
+
+    signature, extension = AVATAR_TYPES[content_type]
+    is_valid_signature = data.startswith(signature)
+    if content_type == "image/webp":
+        is_valid_signature = is_valid_signature and data[8:12] == b"WEBP"
+    if not is_valid_signature:
+        raise HTTPException(status_code=415, detail="The uploaded file is not a valid image")
+    return extension
+
+
+@router.post("/me/avatar", response_model=AvatarUploadOut)
+async def upload_my_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT, UserRole.FREELANCER)),
+):
+    # read one byte beyond the limit so oversized uploads are rejected without storing them
+    image_data = await file.read(MAX_AVATAR_BYTES + 1)
+    extension = _validate_avatar(image_data, file.content_type)
+
+    # generate an unguessable server filename instead of trusting user input
+    AVATAR_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid4().hex}{extension}"
+    destination = AVATAR_DIRECTORY / filename
+    destination.write_bytes(image_data)
+    avatar_url = f"{str(request.base_url).rstrip('/')}/uploads/avatars/{filename}"
+
+    # require an existing role profile before retaining the uploaded file
+    profile = update_profile_avatar(db, current_user.id, current_user.role.value, avatar_url)
+    if profile is None:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=404, detail="Create your profile before uploading an image")
+    return AvatarUploadOut(avatar_url=avatar_url)
 
 
 # --- Client Profile Endpoints ---

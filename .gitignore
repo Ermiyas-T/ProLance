@@ -35,6 +35,9 @@ ProLance-api-col/
 
 # Logs
 *.log
+
+# User-uploaded media
+uploads/
 AGENTS.md
 Freelancer_Marketplace_Functional_Requirements.md
 PROJECT_BREAKDOWN.md

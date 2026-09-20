@@ -13,13 +13,16 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  // Let the browser set multipart boundaries for file uploads; JSON requests need an explicit content type.
+  const headers = new Headers(init.headers);
+  if (!(typeof FormData !== "undefined" && init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (session.token) headers.set("Authorization", `Bearer ${session.token}`);
+
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
-      ...init.headers,
-    },
+    headers,
   });
 
   // 401 = the token is invalid or expired. There is no recovery in-page
@@ -30,7 +33,6 @@ export async function apiFetch<T>(
   if (res.status === 401 && session.token && path !== "/auth/login") {
     session.setToken(null);
     if (typeof window !== "undefined") {
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload intentionally clears cached session data
       window.location.replace("/login");
     }
   }
