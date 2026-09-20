@@ -5,7 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import hash_password
+from app.core.config import settings
+from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -177,6 +178,60 @@ def test_inactive_user_cannot_log_in(client: TestClient, db: Session):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Incorrect email or password"
+
+
+def test_expired_token_is_rejected_with_credentials_error(
+    client: TestClient,
+    registration_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # pin the behavior the frontend 401 flow depends on: a token past its exp
+    # claim is rejected with 401 and the shared credentials detail, exactly
+    # like a tampered token — the client cannot distinguish expiry from junk
+    monkeypatch.setattr(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", -1)
+    expired_token = create_access_token({"user_id": 999, "role": "CLIENT"})
+
+    response = client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {expired_token}"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Could not validate credentials"
+
+
+def test_me_rejects_missing_and_malformed_authorization_headers(client: TestClient):
+    # no token and junk tokens must never reach the protected handler
+    missing_response = client.get("/auth/me")
+    garbage_response = client.get(
+        "/auth/me", headers={"Authorization": "Bearer not-a-jwt"}
+    )
+    wrong_scheme_response = client.get(
+        "/auth/me", headers={"Authorization": "Basic dXNlcjpwYXNz"}
+    )
+
+    assert missing_response.status_code == 401
+    assert garbage_response.status_code == 401
+    assert wrong_scheme_response.status_code == 401
+
+
+def test_token_for_deleted_user_is_rejected(
+    client: TestClient,
+    db: Session,
+    registration_payload: dict[str, str],
+):
+    # a signed token for an identity that no longer exists must not authenticate
+    register_response = client.post("/auth/register", json=registration_payload)
+    user_id = register_response.json()["id"]
+    token = create_access_token({"user_id": user_id, "role": "FREELANCER"})
+
+    stored_user = db.get(User, user_id)
+    db.delete(stored_user)
+    db.commit()
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Could not validate credentials"
 
 
 def test_me_returns_account_name_after_login(

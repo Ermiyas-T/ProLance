@@ -35,6 +35,20 @@ class UserCreate(BaseModel):
         return str(value).strip().lower()
 
 
+# validates the body of PATCH /auth/me/password
+class PasswordChange(BaseModel):
+    # current password proves ownership before the hash is replaced
+    current_password: str
+    # same 8-character floor as registration so the new hash is never weaker
+    new_password: str = Field(min_length=8)
+
+
+# validates the body of POST /auth/me/deactivate
+class AccountDeactivation(BaseModel):
+    # require the password so a stolen, still-valid token cannot disable the account
+    password: str
+
+
 # validates the body of POST /auth/login
 class UserLogin(BaseModel):
     email: EmailStr
