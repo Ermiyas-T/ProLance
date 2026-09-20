@@ -150,7 +150,23 @@ export default function EditProjectPage() {
   return (
     <div className="flex flex-1 flex-col">
       <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
+        {/* Navigation & Header */}
         <div className="mb-6">
+          <Link
+            href={`/projects/${projectId}`}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium mb-3 group"
+          >
+            <svg
+              className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Project Details
+          </Link>
           <h1 className="text-2xl font-bold text-foreground">Edit project</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isReadOnly
@@ -158,6 +174,7 @@ export default function EditProjectPage() {
               : "Update your project details before publishing."}
           </p>
         </div>
+
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Title */}

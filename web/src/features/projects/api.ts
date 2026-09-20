@@ -75,3 +75,17 @@ export function updateProject(
     body: JSON.stringify(data),
   });
 }
+
+// POST /projects/{id}/cancel — cancel an open or draft project
+export function cancelProject(id: number): Promise<Project> {
+  return apiFetch<Project>(`/projects/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+// DELETE /projects/{id} — delete a draft or cancelled project
+export function deleteProject(id: number): Promise<void> {
+  return apiFetch<void>(`/projects/${id}`, {
+    method: "DELETE",
+  });
+}
