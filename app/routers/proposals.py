@@ -25,6 +25,7 @@ from app.services.contract_service import (
 )
 from app.services.proposal_service import (
     DuplicateProposalError,
+    DeliveryDeadlineExceededError,
     InvalidProjectStateError,
     InvalidProposalStateError,
     ProjectNotFoundError,
@@ -76,6 +77,11 @@ def _raise_proposal_http_error(error: Exception) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="You already have a pending proposal on this project",
         )
+    if isinstance(error, DeliveryDeadlineExceededError):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Delivery time must fit within the project's deadline",
+        )
     raise error
 
 
@@ -93,6 +99,7 @@ def create_proposal_endpoint(
         InvalidProjectStateError,
         SelfProposalError,
         DuplicateProposalError,
+        DeliveryDeadlineExceededError,
     ) as error:
         _raise_proposal_http_error(error)
 

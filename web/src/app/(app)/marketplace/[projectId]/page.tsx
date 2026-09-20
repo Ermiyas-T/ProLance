@@ -107,6 +107,9 @@ function ProjectDetail({
     );
   }
 
+  // Keep ETB as the platform default when legacy project data has no currency.
+  const projectCurrency = project.currency || "ETB";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -129,7 +132,7 @@ function ProjectDetail({
           <div>
             <p className="text-xs text-muted-foreground mb-1">Budget</p>
             <p className="text-lg font-semibold text-foreground">
-              {formatMoney(project.budget, project.currency)}
+              {formatMoney(project.budget, projectCurrency)}
             </p>
           </div>
           <div>
@@ -187,8 +190,13 @@ function ProjectDetail({
               </button>
             </div>
           ) : showProposalForm ? (
-            <form onSubmit={handleSubmitProposal} className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Submit a proposal</h3>
+            <form onSubmit={handleSubmitProposal} className="space-y-5">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Submit a Proposal</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Share your price, timeline, and approach for this project.
+                </p>
+              </div>
 
               {proposalError && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -196,22 +204,30 @@ function ProjectDetail({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="price" className="block text-sm font-medium text-foreground mb-1.5">
-                    Your price (USD)
+                    Your price ({projectCurrency})
                   </label>
-                  <input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-                    placeholder="0.00"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium select-none">
+                      {projectCurrency}
+                    </span>
+                    <input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      className="w-full pl-12 pr-3 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Offer a price that reflects the project scope.
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="deliveryDays" className="block text-sm font-medium text-foreground mb-1.5">
@@ -224,9 +240,12 @@ function ProjectDetail({
                     required
                     value={deliveryDays}
                     onChange={(e) => setDeliveryDays(e.target.value)}
-                    className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                    className="w-full px-3 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                     placeholder="14"
                   />
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Number of days needed to complete the project.
+                  </p>
                 </div>
               </div>
 
@@ -240,23 +259,23 @@ function ProjectDetail({
                   rows={5}
                   value={coverLetter}
                   onChange={(e) => setCoverLetter(e.target.value)}
-                  className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y min-h-[120px] transition-colors"
                   placeholder="Explain why you're a great fit for this project…"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowProposalForm(false)}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium border border-border rounded-lg bg-background text-foreground hover:bg-secondary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={proposalMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
                 >
                   {proposalMutation.isPending ? "Submitting…" : "Submit proposal"}
                 </button>

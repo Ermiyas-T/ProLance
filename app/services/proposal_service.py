@@ -1,3 +1,5 @@
+from datetime import datetime, timezone, timedelta
+
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -42,6 +44,11 @@ class ProjectNotFoundError(Exception):
     pass
 
 
+# prevent proposals whose promised delivery extends beyond the client's deadline
+class DeliveryDeadlineExceededError(Exception):
+    pass
+
+
 # retrieve a proposal by primary key
 def get_proposal(db: Session, proposal_id: int) -> Proposal | None:
     # select by primary key with project relationship for authorization checks
@@ -81,6 +88,16 @@ def _validate_project_for_proposal(db: Session, project_id: int) -> Project:
     return project
 
 
+# compare the freelancer's promised completion date with the project's hard deadline
+def _validate_delivery_days(project: Project, delivery_days: int) -> None:
+    deadline = project.deadline
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    expected_completion = datetime.now(timezone.utc) + timedelta(days=delivery_days)
+    if expected_completion > deadline:
+        raise DeliveryDeadlineExceededError
+
+
 # check if the freelancer already has a pending proposal on this project
 def _check_duplicate_proposal(db: Session, project_id: int, freelancer_id: int) -> None:
     existing_proposal = db.scalar(
@@ -103,6 +120,9 @@ def create_proposal(db: Session, freelancer_id: int, data: ProposalCreate) -> Pr
     if project.owner_id == freelancer_id:
         raise SelfProposalError
 
+    # reject delivery estimates that cannot meet the client's advertised deadline
+    _validate_delivery_days(project, data.delivery_days)
+
     # check for duplicate pending proposals
     _check_duplicate_proposal(db, data.project_id, freelancer_id)
 
@@ -111,6 +131,7 @@ def create_proposal(db: Session, freelancer_id: int, data: ProposalCreate) -> Pr
         project_id=data.project_id,
         freelancer_id=freelancer_id,
         proposed_price=data.proposed_price,
+        currency=project.currency or "ETB",
         delivery_days=data.delivery_days,
         cover_letter=data.cover_letter,
         status=ProposalStatus.PENDING,

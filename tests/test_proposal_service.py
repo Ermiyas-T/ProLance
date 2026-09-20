@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.schemas.proposal import ProposalCreate
 from app.services.proposal_service import (
     DuplicateProposalError,
+    DeliveryDeadlineExceededError,
     InvalidProjectStateError,
     InvalidProposalStateError,
     ProposalOwnershipError,
@@ -77,6 +79,29 @@ def test_create_proposal_persists_pending_bid_and_blocks_duplicate(
     # prevent the same freelancer from holding two active bids on one project
     with pytest.raises(DuplicateProposalError):
         create_proposal(db, freelancer_user.id, data)
+
+
+def test_create_proposal_rejects_delivery_after_project_deadline(
+    db: Session,
+    client_user: User,
+    freelancer_user: User,
+) -> None:
+    # keep the advertised deadline deliberately shorter than the proposed delivery estimate
+    project = make_project(db, client_user.id, ProjectStatus.OPEN)
+    project.deadline = project.deadline - timedelta(days=5)
+    db.commit()
+
+    with pytest.raises(DeliveryDeadlineExceededError):
+        create_proposal(
+            db,
+            freelancer_user.id,
+            ProposalCreate(
+                project_id=project.id,
+                proposed_price=Decimal("800.00"),
+                delivery_days=10,
+                cover_letter="Ready to help",
+            ),
+        )
 
 
 def test_authorized_proposal_view_allows_bidder_and_project_owner_only(

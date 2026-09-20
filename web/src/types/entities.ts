@@ -64,6 +64,7 @@ export interface FreelancerProfile {
   user_id: number;
   professional_title: string | null;
   bio: string | null;
+  avatar_url: string | null;
   hourly_rate: string;
   avg_rating: string;
   completed_projects_count: number;
@@ -81,6 +82,7 @@ export interface Proposal {
   project_id: number;
   freelancer_id: number;
   proposed_price: string;
+  currency: string;
   delivery_days: number;
   cover_letter: string;
   status: ProposalStatus;

@@ -17,6 +17,7 @@ class ContractOut(BaseModel):
     client_id: int
     freelancer_id: int
     agreed_price: Decimal
+    currency: str
     deadline: datetime
     status: ContractStatus
     created_at: datetime

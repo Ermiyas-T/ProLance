@@ -37,6 +37,7 @@ class ProposalOut(BaseModel):
     project_id: int
     freelancer_id: int
     proposed_price: Decimal
+    currency: str
     delivery_days: int
     cover_letter: str
     status: ProposalStatus

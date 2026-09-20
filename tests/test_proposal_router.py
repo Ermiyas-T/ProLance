@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -79,6 +80,27 @@ def test_proposal_router_enforces_role_project_state_and_ownership(
     assert role_response.status_code == 403
     assert state_response.status_code == 409
     assert ownership_response.status_code == 403
+
+
+def test_proposal_router_rejects_delivery_after_project_deadline(
+    client: TestClient,
+    db: Session,
+    client_user: User,
+    freelancer_headers: dict[str, str],
+) -> None:
+    # expose the business conflict as a clear client error at the API boundary
+    project = make_project(db, client_user.id, ProjectStatus.OPEN)
+    project.deadline = project.deadline - timedelta(days=5)
+    db.commit()
+
+    response = client.post(
+        "/proposals",
+        json={**proposal_payload(project.id), "delivery_days": 10},
+        headers=freelancer_headers,
+    )
+
+    assert response.status_code == 409
+    assert "deadline" in response.json()["detail"]
 
 
 def test_project_owner_can_list_and_accept_proposal(

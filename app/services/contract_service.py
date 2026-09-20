@@ -115,6 +115,7 @@ def accept_proposal(db: Session, proposal_id: int, client_id: int) -> Contract:
             client_id=project.owner_id,
             freelancer_id=proposal.freelancer_id,
             agreed_price=proposal.proposed_price,
+            currency=proposal.currency or project.currency or "ETB",
             deadline=project.deadline,
             status=ContractStatus.ACTIVE,
         )
