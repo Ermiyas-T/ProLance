@@ -5,16 +5,14 @@
 // Withdraw calls POST /proposals/{id}/withdraw, not DELETE.
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useSession } from "@/app/providers";
 import { ownProposalsOptions, proposalKeys } from "@/features/proposals/queries";
 import { withdrawProposal } from "@/features/proposals/api";
-import { ApiError } from "@/lib/api-client";
 import { formatMoney, formatDate } from "@/lib/format";
-import type { ProposalStatus } from "@/types/entities";
+import type { Proposal, ProposalStatus } from "@/types/entities";
 
 const STATUS_TABS: { value: ProposalStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -39,6 +37,7 @@ export default function ProposalsPage() {
 
   const [activeTab, setActiveTab] = useState<ProposalStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
+  const [selectedProposalId, setSelectedProposalId] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery(ownProposalsOptions(page, PAGE_SIZE));
 
@@ -53,6 +52,11 @@ export default function ProposalsPage() {
       ? allProposals
       : allProposals.filter((p) => p.status === activeTab);
 
+  // Fall back to the first visible proposal when the selected item is filtered out.
+  const selectedProposal =
+    filteredProposals.find((proposal) => proposal.id === selectedProposalId) ??
+    filteredProposals[0];
+
   // Count per status (from full unfiltered list)
   const statusCounts = allProposals.reduce(
     (acc, p) => {
@@ -66,7 +70,7 @@ export default function ProposalsPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
+        <main className="flex-1 px-4 sm:px-6 py-8 max-w-7xl mx-auto w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">My proposals</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -109,16 +113,21 @@ export default function ProposalsPage() {
             ))}
           </div>
         ) : filteredProposals.length > 0 ? (
-          <div className="space-y-3">
-            {filteredProposals.map((proposal) => (
-              <ProposalCard
-                key={proposal.id}
-                proposal={proposal}
-                onWithdraw={() => {
-                  queryClient.invalidateQueries({ queryKey: proposalKeys.own() });
-                }}
-              />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(320px,0.75fr)_minmax(520px,1.25fr)] gap-8 items-start">
+            <div className="space-y-3">
+              {filteredProposals.map((proposal) => (
+                <ProposalCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  selected={proposal.id === selectedProposal?.id}
+                  onSelect={() => setSelectedProposalId(proposal.id)}
+                  onWithdraw={() => {
+                    queryClient.invalidateQueries({ queryKey: proposalKeys.own() });
+                  }}
+                />
+              ))}
+            </div>
+            <ProposalDetails proposal={selectedProposal} />
           </div>
         ) : (
           <div className="text-center py-12 bg-card rounded-lg border border-border">
@@ -165,19 +174,72 @@ export default function ProposalsPage() {
   );
 }
 
+function ProposalDetails({ proposal }: { proposal?: Proposal }) {
+  if (!proposal) return null;
+
+  const statusMessage = {
+    PENDING: "You can withdraw this proposal while it is pending.",
+    ACCEPTED: "This proposal was accepted and is now represented by a contract.",
+    REJECTED: "This proposal is closed and can no longer be changed.",
+    WITHDRAWN: "You withdrew this proposal, so it can no longer be changed.",
+  }[proposal.status];
+
+  return (
+    <aside className="min-w-0 overflow-x-auto border-t border-border pt-6 mt-2 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8 lg:mt-0 lg:sticky lg:top-6 lg:self-start">
+      <div className="min-w-[28rem] max-w-3xl pr-1">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected proposal</p>
+          <h2 className="text-xl font-semibold text-foreground mt-1">Project #{proposal.project_id}</h2>
+        </div>
+        <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[proposal.status]}`}>
+          {proposal.status}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6 mt-6 pb-5 border-b border-border">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Your price</p>
+          <p className="text-lg font-semibold text-foreground mt-1">
+            {formatMoney(proposal.proposed_price, proposal.currency)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Delivery time</p>
+          <p className="text-lg font-semibold text-foreground mt-1">{proposal.delivery_days} days</p>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-foreground mb-2">Cover letter</p>
+        <p className="text-sm text-muted-foreground whitespace-pre-line break-words leading-6">{proposal.cover_letter}</p>
+      </div>
+
+      <div className="mt-6 pt-4 border-t border-border">
+        <p className="text-xs text-muted-foreground">Submitted {formatDate(proposal.created_at)}</p>
+        <p className="text-sm text-muted-foreground mt-3 leading-5">{statusMessage}</p>
+      </div>
+
+      <Link
+        href={`/marketplace/${proposal.project_id}`}
+        className="inline-flex items-center justify-center mt-6 px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+      >
+        View project
+      </Link>
+      </div>
+    </aside>
+  );
+}
+
 function ProposalCard({
   proposal,
+  selected,
+  onSelect,
   onWithdraw,
 }: {
-  proposal: {
-    id: number;
-    project_id: number;
-    proposed_price: string;
-    delivery_days: number;
-    cover_letter: string;
-    status: ProposalStatus;
-    created_at: string;
-  };
+  proposal: Proposal;
+  selected: boolean;
+  onSelect: () => void;
   onWithdraw: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -199,7 +261,7 @@ function ProposalCard({
   };
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4">
+    <div className={`bg-card rounded-lg border p-4 transition-colors ${selected ? "border-primary shadow-sm" : "border-border"}`}>
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
@@ -219,7 +281,7 @@ function ProposalCard({
         </div>
         <div className="text-right shrink-0 ml-4">
           <p className="text-sm font-semibold text-foreground">
-            {formatMoney(proposal.proposed_price)}
+            {formatMoney(proposal.proposed_price, proposal.currency)}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {proposal.delivery_days} days
@@ -233,6 +295,16 @@ function ProposalCard({
         </p>
 
         {/* Withdraw button — only for PENDING proposals */}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          aria-label={`View details for proposal on project ${proposal.project_id}`}
+          className="text-xs font-medium text-foreground hover:underline"
+        >
+          View details
+        </button>
+
         {proposal.status === "PENDING" && (
           <div className="flex items-center gap-2">
             {confirming && (
