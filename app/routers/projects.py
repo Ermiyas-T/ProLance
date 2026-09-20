@@ -24,6 +24,7 @@ from app.services.project_service import (
     _get_owned_project,
     cancel_project,
     create_project,
+    delete_project,
     get_project,
     list_client_projects,
     list_projects,
@@ -210,6 +211,24 @@ def cancel_project_endpoint(
         InvalidProjectStateError,
     ) as error:
         _raise_project_http_error(error)
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project_endpoint(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    try:
+        # allow clients to delete their draft or cancelled projects
+        delete_project(db, project_id, current_user.id)
+    except (
+        ProjectNotFoundError,
+        ProjectOwnershipError,
+        InvalidProjectStateError,
+    ) as error:
+        _raise_project_http_error(error)
+
 
 
 @router.get("/{project_id}/proposals", response_model=ProposalListOut)

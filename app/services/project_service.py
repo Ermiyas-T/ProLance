@@ -130,6 +130,21 @@ def cancel_project(db: Session, project_id: int, owner_id: int) -> Project:
     return get_project(db, project.id) or project
 
 
+# delete an owned project draft or cancelled project
+def delete_project(db: Session, project_id: int, owner_id: int) -> None:
+    # enforce ownership before deleting
+    project = _get_owned_project(db, project_id, owner_id)
+    # restrict hard deletion to DRAFT or CANCELLED status so active contracts are not orphaned
+    if project.status not in {ProjectStatus.DRAFT, ProjectStatus.CANCELLED}:
+        raise InvalidProjectStateError
+
+    # delete the project record from the database
+    db.delete(project)
+    # commit the deletion transaction
+    db.commit()
+
+
+
 # apply shared marketplace filters to project and count queries consistently
 def _apply_filters(statement: Select[Any], filters: ProjectFilters) -> Select[Any]:
     # filter by a required skill without joining duplicate project rows
