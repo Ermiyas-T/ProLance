@@ -1,15 +1,36 @@
 from fastapi import Depends, FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.session import get_db
-from app.routers import auth, contracts, deliverables, disputes, profiles, projects, proposals, reviews
+from app.routers import (
+    auth,
+    contracts,
+    deliverables,
+    disputes,
+    profiles,
+    projects,
+    proposals,
+    reviews,
+)
 
 app = FastAPI(
     title="ProLance API",
     description="Freelancer marketplace backend",
     version="0.1.0",
+)
+
+# allow the frontend origin to make browser requests to this API
+allow_origins_list = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # include application sub-routers
@@ -35,5 +56,9 @@ def health(db: Session = Depends(get_db)):
         # return 503 service unavailable if database connection fails
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "degraded", "database": "unreachable", "detail": str(exc)},
+            content={
+                "status": "degraded",
+                "database": "unreachable",
+                "detail": str(exc),
+            },
         )
