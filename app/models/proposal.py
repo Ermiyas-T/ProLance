@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Numeric,
+    String,
     Text,
     func,
 )
@@ -62,6 +63,10 @@ class Proposal(Base):
     )
     # store the freelancer's quoted price as Decimal-compatible fixed precision
     proposed_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # ISO 4217 currency code for the proposed price (inherited from the project)
+    currency: Mapped[str] = mapped_column(
+        String(3), default="ETB", server_default="ETB", nullable=False
+    )
     # store the freelancer's estimated delivery time in days
     delivery_days: Mapped[int] = mapped_column(nullable=False)
     # store the freelancer's pitch to the client

@@ -81,6 +81,10 @@ class FreelancerProfile(Base):
     bio: Mapped[str | None] = mapped_column(Text)
     # money is stored as fixed-precision Decimal, never a float
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # ISO 4217 currency code for the hourly rate (ETB is the platform default)
+    currency: Mapped[str] = mapped_column(
+        String(3), default="ETB", server_default="ETB", nullable=False
+    )
     # running aggregate rating stored as fixed-precision decimal
     avg_rating: Mapped[Decimal] = mapped_column(
         Numeric(3, 2), server_default="0.00", default=Decimal("0.00"), nullable=False

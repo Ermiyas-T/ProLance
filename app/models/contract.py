@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Numeric, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -39,6 +39,10 @@ class Contract(Base):
     freelancer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     # store the agreed price as Decimal-compatible fixed precision
     agreed_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # ISO 4217 currency code for the agreed price (inherited from the proposal)
+    currency: Mapped[str] = mapped_column(
+        String(3), default="ETB", server_default="ETB", nullable=False
+    )
     # store the contract deadline from the project or negotiation
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # status changes only through service actions, never direct request input
