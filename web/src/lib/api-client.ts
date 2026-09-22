@@ -7,6 +7,19 @@ export class ApiError extends Error {
   }
 }
 
+// FastAPI returns validation errors as an array of {msg, loc, type} objects;
+// extract a single human-readable string so React can render it safely.
+function normalizeDetail(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => (typeof item === "object" && item !== null ? item.msg ?? JSON.stringify(item) : String(item)))
+      .join("; ");
+  }
+  if (raw != null && typeof raw === "object") return (raw as { msg?: string }).msg ?? JSON.stringify(raw);
+  return "Unexpected error";
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
 async function refreshSession(): Promise<boolean> {
@@ -64,7 +77,7 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: "Unexpected error" }));
-    throw new ApiError(response.status, body.detail ?? "Unexpected error");
+    throw new ApiError(response.status, normalizeDetail(body.detail));
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
