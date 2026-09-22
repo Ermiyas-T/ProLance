@@ -10,6 +10,7 @@ from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.auth_session import AuthSession
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 from app.services import user_service
@@ -234,41 +235,94 @@ def test_token_for_deleted_user_is_rejected(
     assert response.json()["detail"] == "Could not validate credentials"
 
 
-def test_me_returns_account_name_after_login(
+def test_login_issues_httponly_cookies_and_me_returns_account_name(
     client: TestClient, registration_payload: dict[str, str]
 ):
-    # authenticate a newly registered user before verifying the account identity response
+    # authenticate a newly registered user and let the client cookie jar call /auth/me
     register_response = client.post("/auth/register", json=registration_payload)
     login_response = client.post(
         "/auth/login",
         json={"email": registration_payload["email"], "password": registration_payload["password"]},
     )
-
-    access_token = login_response.json()["access_token"]
-    me_response = client.get("/auth/me", headers={"Authorization": f"Bearer {access_token}"})
+    me_response = client.get("/auth/me")
 
     assert register_response.status_code == 201
-    assert login_response.status_code == 200
+    assert login_response.status_code == 204
+    assert "prolance_access" in login_response.headers["set-cookie"]
+    assert "HttpOnly" in login_response.headers["set-cookie"]
     assert me_response.status_code == 200
     assert me_response.json()["full_name"] == registration_payload["full_name"]
+
+
+def test_refresh_rotates_cookie_and_keeps_session_authenticated(
+    client: TestClient, registration_payload: dict[str, str]
+):
+    # establish a session before exercising the server-side refresh rotation
+    client.post("/auth/register", json=registration_payload)
+    client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    original_refresh = client.cookies.get("prolance_refresh")
+
+    refresh_response = client.post("/auth/refresh")
+
+    assert refresh_response.status_code == 204
+    assert client.cookies.get("prolance_refresh") != original_refresh
+    assert client.get("/auth/me").status_code == 200
+
+
+def test_logout_revokes_current_session_and_clears_browser_cookies(
+    client: TestClient, db: Session, registration_payload: dict[str, str]
+):
+    # create one cookie-backed session and capture the server row before logout
+    client.post("/auth/register", json=registration_payload)
+    client.post(
+        "/auth/login",
+        json={"email": registration_payload["email"], "password": registration_payload["password"]},
+    )
+    session_id = client.cookies.get("prolance_refresh").split(".", maxsplit=1)[0]
+
+    logout_response = client.post("/auth/logout")
+
+    assert logout_response.status_code == 204
+    assert db.get(AuthSession, session_id).revoked_at is not None
+    assert client.get("/auth/me").status_code == 401
+
+
+def test_password_change_revokes_all_cookie_sessions(
+    client: TestClient, db: Session, registration_payload: dict[str, str]
+):
+    # log in twice so the password update must revoke more than the active browser session
+    client.post("/auth/register", json=registration_payload)
+    login_payload = {"email": registration_payload["email"], "password": registration_payload["password"]}
+    client.post("/auth/login", json=login_payload)
+    client.post("/auth/login", json=login_payload)
+
+    password_response = client.patch(
+        "/auth/me/password",
+        json={"current_password": registration_payload["password"], "new_password": "new-secure-password"},
+    )
+
+    assert password_response.status_code == 204
+    assert all(session.revoked_at is not None for session in db.query(AuthSession).all())
+    assert client.post("/auth/refresh").status_code == 401
 
 
 def test_change_password_success_and_invalid_current_password(
     client: TestClient, registration_payload: dict[str, str]
 ):
-    # register a user and log in to get access token
+    # register a user and log in to establish the browser cookie session
     client.post("/auth/register", json=registration_payload)
     login_res = client.post(
         "/auth/login",
         json={"email": registration_payload["email"], "password": registration_payload["password"]},
     )
-    token = login_res.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    assert login_res.status_code == 204
 
     # test incorrect current password
     wrong_pwd_res = client.patch(
         "/auth/me/password",
-        headers=headers,
         json={"current_password": "wrong-password", "new_password": "new-secure-password"},
     )
     assert wrong_pwd_res.status_code == 400
@@ -277,7 +331,6 @@ def test_change_password_success_and_invalid_current_password(
     # test successful password change
     success_pwd_res = client.patch(
         "/auth/me/password",
-        headers=headers,
         json={"current_password": registration_payload["password"], "new_password": "new-secure-password"},
     )
     assert success_pwd_res.status_code == 204
@@ -294,25 +347,23 @@ def test_change_password_success_and_invalid_current_password(
         "/auth/login",
         json={"email": registration_payload["email"], "password": "new-secure-password"},
     )
-    assert new_login_res.status_code == 200
+    assert new_login_res.status_code == 204
 
 
 def test_deactivate_account_success(
     client: TestClient, registration_payload: dict[str, str]
 ):
-    # register a user and log in to get access token
+    # register a user and log in to establish the browser cookie session
     client.post("/auth/register", json=registration_payload)
     login_res = client.post(
         "/auth/login",
         json={"email": registration_payload["email"], "password": registration_payload["password"]},
     )
-    token = login_res.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    assert login_res.status_code == 204
 
     # test wrong password for deactivation
     wrong_deactivate_res = client.post(
         "/auth/me/deactivate",
-        headers=headers,
         json={"password": "wrong-password"},
     )
     assert wrong_deactivate_res.status_code == 400
@@ -321,7 +372,6 @@ def test_deactivate_account_success(
     # test successful deactivation
     deactivate_res = client.post(
         "/auth/me/deactivate",
-        headers=headers,
         json={"password": registration_payload["password"]},
     )
     assert deactivate_res.status_code == 204
@@ -332,4 +382,3 @@ def test_deactivate_account_success(
         json={"email": registration_payload["email"], "password": registration_payload["password"]},
     )
     assert after_deactivate_login.status_code == 401
-

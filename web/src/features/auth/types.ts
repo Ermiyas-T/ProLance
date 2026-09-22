@@ -16,9 +16,3 @@ export interface LoginRequest {
   email: string;
   password: string;
 }
-
-// POST /auth/login response
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-}

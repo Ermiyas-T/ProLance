@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 from typing import Any
 
 import bcrypt
@@ -38,3 +40,13 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(
         token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
     )
+
+
+def create_refresh_secret() -> str:
+    # generate enough entropy that a refresh secret cannot be guessed in practice
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_secret(secret: str) -> str:
+    # persist only a one-way digest so a database leak cannot replay sessions
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()

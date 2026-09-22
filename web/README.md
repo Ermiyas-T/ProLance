@@ -17,7 +17,7 @@ Next.js App Router frontend for the ProLance freelancer marketplace.
 
 ```bash
 npm install
-cp .env.example .env.local   # set NEXT_PUBLIC_API_URL to the FastAPI backend
+cp .env.example .env.local   # set BACKEND_API_URL to the FastAPI backend
 npm run dev
 ```
 

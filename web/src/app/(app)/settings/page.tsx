@@ -28,8 +28,9 @@ export default function SettingsPage() {
 
   if (!user) return null;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    // revoke the server session before returning to the public sign-in screen
+    await logout();
     router.push("/login");
   };
 
@@ -93,7 +94,8 @@ export default function SettingsPage() {
         }),
       });
 
-      logout();
+      // account deactivation already revoked every session, so only clear local cache here
+      await logout();
       router.push("/login");
     } catch (err) {
       if (err instanceof ApiError) {

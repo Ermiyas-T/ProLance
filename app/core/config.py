@@ -17,8 +17,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-    # extend access token lifetime to 7 days (10080 minutes) for persistent sessions
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+    # keep access tokens short-lived so a stolen browser cookie has limited value
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    # allow users to keep a session while the rotating refresh session remains valid
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # keep cookie transport configurable because local HTTP cannot use Secure cookies
+    AUTH_COOKIE_SECURE: bool = False
+    AUTH_COOKIE_SAMESITE: str = "lax"
+    AUTH_COOKIE_DOMAIN: str | None = None
     ALLOWED_ORIGINS: str = ""
 
 

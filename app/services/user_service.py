@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password, verify_password
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
+from app.services.auth_session_service import revoke_all_user_sessions
 
 
 # represents the safe duplicate-account outcome without coupling services to HTTP
@@ -63,7 +64,8 @@ def change_password(db: Session, user: User, current_password: str, new_password
 
     # update the hashed_password column with the new hashed password
     user.hashed_password = hash_password(new_password)
-    # persist the password change to the database
+    # revoke existing sessions in the same transaction as the new password hash
+    revoke_all_user_sessions(db, user.id)
     db.commit()
 
 
@@ -74,6 +76,6 @@ def deactivate_account(db: Session, user: User, password: str) -> None:
 
     # mark the user account as inactive
     user.is_active = False
-    # persist the deactivation to the database
+    # revoke existing sessions in the same transaction as account deactivation
+    revoke_all_user_sessions(db, user.id)
     db.commit()
-

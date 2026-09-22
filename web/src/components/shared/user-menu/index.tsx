@@ -46,9 +46,10 @@ export function UserMenu({ fullName }: { fullName: string }) {
 
   const close = () => setOpen(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     close();
-    logout();
+    // revoke the server session before returning to the public sign-in screen
+    await logout();
     router.push("/login");
   };
 

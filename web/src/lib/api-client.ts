@@ -1,5 +1,3 @@
-import { session } from "./session";
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -9,37 +7,64 @@ export class ApiError extends Error {
   }
 }
 
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
+  // share a single refresh request so simultaneous expired requests do not rotate twice
+  refreshPromise ??= fetch("/api/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+  })
+    .then((response) => response.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
+function notifySessionExpired(): void {
+  // let the session provider own the UI transition instead of redirecting from fetch code
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("prolance:session-expired"));
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
+  allowRefresh = true,
 ): Promise<T> {
-  // Let the browser set multipart boundaries for file uploads; JSON requests need an explicit content type.
+  // JSON requests need a content type while multipart requests must keep their browser boundary
   const headers = new Headers(init.headers);
   if (!(typeof FormData !== "undefined" && init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  if (session.token) headers.set("Authorization", `Bearer ${session.token}`);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
+  const response = await fetch(`/api${path}`, {
     ...init,
     headers,
+    credentials: "include",
   });
 
-  // 401 = the token is invalid or expired. There is no recovery in-page
-  // (V1 has no refresh token): clear the dead session and let the user
-  // sign in again. A full navigation (not router.push) is deliberate — it
-  // also clears the React Query cache from the dead session; replace() keeps
-  // the expired page out of browser history.
-  if (res.status === 401 && session.token && path !== "/auth/login") {
-    session.setToken(null);
-    if (typeof window !== "undefined") {
-      window.location.replace("/login");
+  // recover once from a short-lived access cookie unless this is itself an auth action
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    !["/auth/login", "/auth/refresh", "/auth/logout"].includes(path)
+  ) {
+    if (await refreshSession()) {
+      return apiFetch<T>(path, init, false);
+    }
+    // /auth/me drives public and protected route initialization, so its caller handles redirects
+    if (path !== "/auth/me") {
+      notifySessionExpired();
     }
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: "Unexpected error" }));
-    throw new ApiError(res.status, body.detail ?? "Unexpected error");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Unexpected error" }));
+    throw new ApiError(response.status, body.detail ?? "Unexpected error");
   }
-  return res.status === 204 ? (undefined as T) : res.json();
+  return response.status === 204 ? (undefined as T) : response.json();
 }

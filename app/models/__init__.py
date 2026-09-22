@@ -13,10 +13,12 @@ from app.models.review import Review, ReviewType
 from app.models.proposal import Proposal, ProposalStatus
 from app.models.task import Task, TaskStatus
 from app.models.user import User, UserRole
+from app.models.auth_session import AuthSession
 
 __all__ = [
     "User",
     "UserRole",
+    "AuthSession",
     "Skill",
     "ClientProfile",
     "FreelancerProfile",

@@ -1,4 +1,4 @@
-// Route protection middleware inspecting the prolance_token cookie
+// Route protection middleware inspecting the HttpOnly access-cookie presence.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -21,8 +21,8 @@ const PROTECTED_PREFIXES = [
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    // read prolance_token cookie directly from the incoming request
-    const token = request.cookies.get("prolance_token")?.value;
+    // read the HttpOnly cookie; backend validation remains the real authority
+    const token = request.cookies.get("prolance_access")?.value;
 
     // redirect authenticated users away from public auth pages (/login, /register) to /dashboard
     if (token && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {

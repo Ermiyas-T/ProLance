@@ -9,8 +9,7 @@ export const authKeys = {
   me: () => [...authKeys.all, "me"] as const,
 };
 
-// Fetches the current user; disabled when no token is set.
-// The SessionProvider controls the `enabled` flag based on session.token.
+// Fetches the current user after client hydration; cookies authenticate the request invisibly.
 export const meQueryOptions = (enabled: boolean) =>
   queryOptions({
     queryKey: authKeys.me(),
