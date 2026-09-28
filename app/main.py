@@ -53,6 +53,12 @@ app.include_router(reviews.router)
 app.include_router(disputes.router)
 
 
+# OpenCode probes /v1/models to check for OpenAI-compatible APIs; return an empty list to silence the 404 noise
+@app.get("/v1/models", tags=["compatibility"])
+def list_models():
+    return {"data": [], "object": "list"}
+
+
 # comprehensive health check endpoint verifying app and database availability
 @app.get("/health", tags=["health"])
 def health(db: Session = Depends(get_db)):
