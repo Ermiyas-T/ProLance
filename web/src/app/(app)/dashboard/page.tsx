@@ -1,10 +1,12 @@
 "use client";
 
-// Dashboard — role-branching landing page (Architecture.md §4).
-// Client: project pipeline + stat cards + recent activity.
-// Freelancer: proposal stats + marketplace preview + active contracts.
-// Admin: dispute queue with urgency + platform stats overview.
-// All data sourced from real API endpoints — no fake metrics.
+// Dashboard — role-branching landing page (Architecture.md §4, Project_breakdown.md §7.3).
+// One URL, three distinct summaries that keep their own purpose:
+//   Client     → project control, proposal decisions, contract oversight
+//   Freelancer → proposal pipeline, contract delivery, marketplace discovery
+//   Admin      → dispute triage command center (moderation first, not platform analytics)
+// Every value comes from a live V1 endpoint. Counts derived from a single loaded
+// batch are labelled as page-scoped so no summary card implies a false total.
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -16,131 +18,18 @@ import { ownProposalsOptions } from "@/features/proposals/queries";
 import { contractListOptions } from "@/features/contracts/queries";
 import { openDisputesOptions } from "@/features/disputes/queries";
 import { formatMoney, formatRelativeTime } from "@/lib/format";
+// Import shared UUID label helper so references render as short IDs
+import { shortId } from "@/lib/identity";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { StatCard } from "@/components/shared/stat-card";
+import { ErrorState } from "@/components/shared/error-state";
 import type { Project, Proposal, Contract, Dispute } from "@/types/entities";
 
-// ─── Shared UI primitives ────────────────────────────────────────────
+// Load the backend maximum batch so a status tally is usually complete, while
+// still labelling counts honestly when the collection spans several pages.
+const PAGE_SIZE = 100;
 
-// Animated stat card with gradient accent line and hover lift
-function StatCard({
-  label,
-  value,
-  subtitle,
-  icon,
-  accentColor = "from-primary/20 to-primary/5",
-  href,
-}: {
-  label: string;
-  value: string | number;
-  subtitle?: string;
-  icon: React.ReactNode;
-  accentColor?: string;
-  href?: string;
-}) {
-  const content = (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20 hover:-translate-y-0.5">
-      {/* Gradient accent top bar */}
-      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${accentColor} opacity-80`} />
-
-      <div className="flex items-start justify-between">
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
-          <p className="text-2xl font-bold tabular-nums text-foreground">
-            {value}
-          </p>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          )}
-        </div>
-        {/* Icon container with subtle animated background */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (href) return <Link href={href}>{content}</Link>;
-  return content;
-}
-
-// Section header with optional action link
-function SectionHeader({
-  title,
-  actionLabel,
-  actionHref,
-}: {
-  title: string;
-  actionLabel?: string;
-  actionHref?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <h2 className="text-base font-semibold text-foreground">{title}</h2>
-      {actionLabel && actionHref && (
-        <Link
-          href={actionHref}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {actionLabel}
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
-          </svg>
-        </Link>
-      )}
-    </div>
-  );
-}
-
-// Shimmer skeleton row for loading states
-function DashboardSkeleton({ rows = 3 }: { rows?: number }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div
-          key={i}
-          className="h-20 animate-pulse rounded-xl bg-muted/60"
-          style={{ animationDelay: `${i * 100}ms` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// Empty state with a subtle illustration placeholder
-function DashboardEmpty({ message, action }: { message: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-        <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-      </div>
-      <p className="text-sm text-muted-foreground">{message}</p>
-      {action && <div className="mt-4">{action}</div>}
-    </div>
-  );
-}
-
-// Mini progress bar (used in pipeline views)
-function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ease-out ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{value}</span>
-    </div>
-  );
-}
-
-// ─── Inline icon set ──────────────────────────────────────────────────
+// ─── Inline Icon Library (Consistent 24x24 viewBox) ───────────────────
 
 const icons = {
   folder: (
@@ -193,64 +82,164 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
     </svg>
   ),
+  arrowRight: (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
+    </svg>
+  ),
 };
 
-// ─── Greeting time-of-day helper ──────────────────────────────────────
+// ─── Time of Day Greeting Helper ──────────────────────────────────────
 
 function getGreeting(): string {
+  // compute contextual greeting based on local hour
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
 }
 
-// ─── Page root ────────────────────────────────────────────────────────
+// ─── Shared UI Helpers ────────────────────────────────────────────────
+
+// section header with optional navigation action link
+function SectionHeader({
+  title,
+  subtitle,
+  actionLabel,
+  actionHref,
+}: {
+  title: string;
+  subtitle?: string;
+  actionLabel?: string;
+  actionHref?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      </div>
+      {actionLabel && actionHref && (
+        <Link
+          href={actionHref}
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:underline"
+        >
+          {actionLabel}
+          {icons.arrowRight}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// skeleton rows for list loading states
+function ListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="h-16 animate-pulse rounded-xl bg-muted/60"
+          style={{ animationDelay: `${i * 80}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// empty state placeholder for feed cards
+function DashboardEmpty({
+  message,
+  action,
+}: {
+  message: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-10 text-center">
+      <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {icons.folder}
+      </div>
+      <p className="text-sm text-muted-foreground max-w-sm px-4">{message}</p>
+      {action && <div className="mt-3.5">{action}</div>}
+    </div>
+  );
+}
+
+// honest disclosure for counts derived from one loaded batch (mirrors /projects and /proposals)
+function ScopeNote({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl px-4 py-2.5">
+      {children}
+    </p>
+  );
+}
+
+// mini pipeline progress bar
+function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ease-out ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{value}</span>
+    </div>
+  );
+}
+
+// ─── Dashboard Root Page Component ────────────────────────────────────
 
 export default function DashboardPage() {
   const { user } = useSession();
 
-  // AppLayout ensures user is non-null before rendering
+  // AppLayout guarantees user is loaded before rendering
   if (!user) return null;
 
   return (
     <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 max-w-6xl mx-auto w-full">
-      {/* Welcome header with contextual greeting */}
+      {/* Welcome header with contextual role subtitle */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {getGreeting()}, {user.full_name.split(" ")[0]}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {user.role === "CLIENT" && "Here's an overview of your projects and contracts."}
-          {user.role === "FREELANCER" && "Track your proposals and find new opportunities."}
-          {user.role === "ADMIN" && "Platform overview and moderation queue."}
+          {user.role === "CLIENT" && "Manage your project briefs, review incoming proposals, and track active contracts."}
+          {user.role === "FREELANCER" && "Track submitted proposals, monitor active contracts, and discover open marketplace briefs."}
+          {user.role === "ADMIN" && "Moderation triage and dispute resolution across the platform."}
         </p>
       </div>
 
-      {user.role === "CLIENT" && <ClientDashboard userId={user.id} />}
-      {user.role === "FREELANCER" && <FreelancerDashboard userId={user.id} />}
+      {user.role === "CLIENT" && <ClientDashboard />}
+      {user.role === "FREELANCER" && <FreelancerDashboard />}
       {user.role === "ADMIN" && <AdminDashboard />}
     </main>
   );
 }
 
 // ─── CLIENT DASHBOARD ─────────────────────────────────────────────────
+// Purpose: keep the client's briefs moving and surface the decisions only they can make.
 
-function ClientDashboard({ userId }: { userId: number }) {
-  // Fetch the client's own projects (all statuses) for pipeline stats
-  const { data: projectsData, isLoading: projectsLoading } = useQuery(
-    clientProjectsOptions(1, 50),
-  );
-  // Fetch the client's contracts to show active work
-  const { data: contractsData, isLoading: contractsLoading } = useQuery(
-    contractListOptions(1, 50),
-  );
+function ClientDashboard() {
+  // load the client's own projects across every lifecycle state
+  const projectsQuery = useQuery(clientProjectsOptions(1, PAGE_SIZE));
+  // load the client's contracts (owner role, both ACTIVE and DELIVERED included)
+  const contractsQuery = useQuery(contractListOptions(1, PAGE_SIZE));
 
-  // Derive pipeline stats from real project data
+  const projectsData = projectsQuery.data;
+  const contractsData = contractsQuery.data;
+
+  // derive project pipeline stats from real queries
   const stats = useMemo(() => {
     const projects = projectsData?.items ?? [];
     const contracts = contractsData?.items ?? [];
     return {
       totalProjects: projectsData?.total ?? 0,
+      loadedProjects: projects.length,
+      loadedContracts: contracts.length,
       draft: projects.filter((p) => p.status === "DRAFT").length,
       open: projects.filter((p) => p.status === "OPEN").length,
       inProgress: projects.filter((p) => p.status === "IN_PROGRESS").length,
@@ -261,86 +250,136 @@ function ClientDashboard({ userId }: { userId: number }) {
     };
   }, [projectsData, contractsData]);
 
-  const isLoading = projectsLoading || contractsLoading;
+  const isLoading = projectsQuery.isLoading || contractsQuery.isLoading;
+  const isError = projectsQuery.isError || contractsQuery.isError;
+
+  // one retry refreshes both feeds after either request fails
+  const retry = () => {
+    projectsQuery.refetch();
+    contractsQuery.refetch();
+  };
+
+  // show a real error instead of letting empty cards imply "no data"
+  if (isError) {
+    return (
+      <ErrorState
+        title="Could not load your workspace"
+        message="We could not reach the server for your projects and contracts."
+        onRetry={retry}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">
-      {/* Stat cards row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Total Projects"
-          value={isLoading ? "—" : stats.totalProjects}
-          subtitle={isLoading ? undefined : `${stats.open} open`}
-          icon={icons.folder}
-          accentColor="from-blue-500/30 to-blue-500/5"
-          href="/projects"
-        />
-        <StatCard
-          label="Active Contracts"
-          value={isLoading ? "—" : stats.activeContracts}
-          subtitle={isLoading ? undefined : `${stats.completedContracts} completed`}
-          icon={icons.contract}
-          accentColor="from-purple-500/30 to-purple-500/5"
-          href="/contracts"
-        />
-        <StatCard
-          label="In Progress"
-          value={isLoading ? "—" : stats.inProgress}
-          subtitle="Projects being worked on"
-          icon={icons.clock}
-          accentColor="from-amber-500/30 to-amber-500/5"
-        />
-        <StatCard
-          label="Completed"
-          value={isLoading ? "—" : stats.completed}
-          subtitle="Successfully delivered"
-          icon={icons.check}
-          accentColor="from-green-500/30 to-green-500/5"
-        />
-      </div>
-
-      {/* Create project CTA banner */}
-      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-card via-card to-secondary/30 p-6">
-        {/* Decorative circles */}
-        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/5" />
-        <div className="pointer-events-none absolute -right-2 top-8 h-12 w-12 rounded-full bg-primary/5" />
-
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      {/* Hiring action alert banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-primary" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Hiring Command</p>
+            </div>
             <h2 className="text-lg font-semibold text-foreground">
-              Start a new project
+              {stats.open > 0
+                ? `You have ${stats.open} open project${stats.open > 1 ? "s" : ""} accepting proposals`
+                : "Ready to launch your next project?"}
             </h2>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Post your project brief and receive proposals from qualified freelancers within hours.
+            <p className="max-w-xl text-sm text-muted-foreground">
+              {stats.open > 0
+                ? "Review and compare proposals from freelancers, then accept one to create an active contract."
+                : "Post a detailed brief, specify skills and budget, and start receiving qualified proposals."}
             </p>
           </div>
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center gap-2 self-start rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
-          >
-            {icons.plus}
-            New project
-          </Link>
+          <div className="flex items-center gap-3">
+            {stats.open > 0 && (
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+              >
+                Review proposals
+              </Link>
+            )}
+            <Link
+              href="/projects/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
+            >
+              {icons.plus}
+              Post new project
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Two-column layout: Pipeline + Recent projects */}
+      {/* KPI Metrics row using shared StatCard */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Active Contracts"
+          value={stats.activeContracts}
+          subtitle={`${stats.completedContracts} completed`}
+          icon={icons.contract}
+          accentColor="from-purple-500/30 to-purple-500/5"
+          href="/contracts"
+          loading={isLoading}
+        />
+        <StatCard
+          label="In Progress"
+          value={stats.inProgress}
+          subtitle="Projects in execution"
+          icon={icons.clock}
+          accentColor="from-amber-500/30 to-amber-500/5"
+          href="/projects"
+          loading={isLoading}
+        />
+        <StatCard
+          label="Open for Proposals"
+          value={stats.open}
+          subtitle={stats.draft > 0 ? `${stats.draft} unpublished draft` : "Accepting proposals"}
+          icon={icons.folder}
+          accentColor="from-blue-500/30 to-blue-500/5"
+          href="/projects"
+          loading={isLoading}
+        />
+        <StatCard
+          label="Completed"
+          value={stats.completed}
+          subtitle="Delivered projects"
+          icon={icons.check}
+          accentColor="from-emerald-500/30 to-emerald-500/5"
+          href="/projects"
+          loading={isLoading}
+        />
+      </div>
+
+      {/* Page-scope disclosure keeps status counts honest on multi-page data */}
+      {!isLoading && stats.totalProjects > stats.loadedProjects && (
+        <ScopeNote>
+          Status cards count the {stats.loadedProjects} brief{stats.loadedProjects === 1 ? "" : "s"} and{" "}
+          {stats.loadedContracts} contract{stats.loadedContracts === 1 ? "" : "s"} loaded on this page. Open a full
+          list for the remaining {stats.totalProjects - stats.loadedProjects}.
+        </ScopeNote>
+      )}
+
+      {/* Two-column layout: Pipeline Breakdown + Recent Projects */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Project pipeline breakdown */}
+        {/* Project lifecycle pipeline breakdown */}
         <div className="lg:col-span-2">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <SectionHeader title="Project pipeline" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <SectionHeader
+              title="Project Pipeline"
+              subtitle={`Across the ${stats.loadedProjects} brief${stats.loadedProjects === 1 ? "" : "s"} loaded here`}
+            />
             <div className="mt-5 space-y-4">
               {isLoading ? (
-                <DashboardSkeleton rows={4} />
+                <ListSkeleton rows={4} />
               ) : (
                 <>
-                  <PipelineRow label="Draft" count={stats.draft} total={stats.totalProjects} color="bg-neutral-400" />
-                  <PipelineRow label="Open" count={stats.open} total={stats.totalProjects} color="bg-blue-500" />
-                  <PipelineRow label="In Progress" count={stats.inProgress} total={stats.totalProjects} color="bg-purple-500" />
-                  <PipelineRow label="Completed" count={stats.completed} total={stats.totalProjects} color="bg-green-500" />
+                  <PipelineRow label="Draft" count={stats.draft} total={stats.loadedProjects} color="bg-neutral-400" />
+                  <PipelineRow label="Open" count={stats.open} total={stats.loadedProjects} color="bg-blue-500" />
+                  <PipelineRow label="In Progress" count={stats.inProgress} total={stats.loadedProjects} color="bg-purple-500" />
+                  <PipelineRow label="Completed" count={stats.completed} total={stats.loadedProjects} color="bg-emerald-500" />
                   {stats.cancelled > 0 && (
-                    <PipelineRow label="Cancelled" count={stats.cancelled} total={stats.totalProjects} color="bg-red-400" />
+                    <PipelineRow label="Cancelled" count={stats.cancelled} total={stats.loadedProjects} color="bg-red-400" />
                   )}
                 </>
               )}
@@ -348,22 +387,27 @@ function ClientDashboard({ userId }: { userId: number }) {
           </div>
         </div>
 
-        {/* Recent projects feed */}
+        {/* Recent projects feed with quick decision link */}
         <div className="lg:col-span-3">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <SectionHeader title="Recent projects" actionLabel="View all" actionHref="/projects" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <SectionHeader
+              title="Recent Projects"
+              subtitle="Your most recently posted briefs"
+              actionLabel="View all"
+              actionHref="/projects"
+            />
             <div className="mt-4">
               {isLoading ? (
-                <DashboardSkeleton rows={4} />
+                <ListSkeleton rows={4} />
               ) : projectsData && projectsData.items.length > 0 ? (
-                <div className="space-y-1">
+                <div className="divide-y divide-border/60">
                   {projectsData.items.slice(0, 5).map((project) => (
-                    <ProjectRow key={project.id} project={project} basePath="/projects" />
+                    <ProjectItemRow key={project.id} project={project} />
                   ))}
                 </div>
               ) : (
                 <DashboardEmpty
-                  message="No projects yet. Create your first one to get started!"
+                  message="You haven't posted any projects yet. Create your first brief to connect with freelancers."
                   action={
                     <Link
                       href="/projects/new"
@@ -381,15 +425,20 @@ function ClientDashboard({ userId }: { userId: number }) {
       </div>
 
       {/* Active contracts section */}
-      {!contractsLoading && contractsData && contractsData.items.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <SectionHeader title="Active contracts" actionLabel="View all" actionHref="/contracts" />
-          <div className="mt-4 space-y-1">
+      {!contractsQuery.isLoading && contractsData && contractsData.items.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <SectionHeader
+            title="Active Workspaces"
+            subtitle="Contracts currently in delivery or review"
+            actionLabel="All contracts"
+            actionHref="/contracts"
+          />
+          <div className="mt-4 divide-y divide-border/60">
             {contractsData.items
               .filter((c) => c.status === "ACTIVE" || c.status === "DELIVERED")
               .slice(0, 4)
               .map((contract) => (
-                <ContractRow key={contract.id} contract={contract} />
+                <ContractItemRow key={contract.id} contract={contract} />
               ))}
           </div>
         </div>
@@ -399,27 +448,29 @@ function ClientDashboard({ userId }: { userId: number }) {
 }
 
 // ─── FREELANCER DASHBOARD ─────────────────────────────────────────────
+// Purpose: discover relevant work and track every proposal and delivery.
 
-function FreelancerDashboard({ userId }: { userId: number }) {
-  // Fetch freelancer's own proposals for stats
-  const { data: proposalsData, isLoading: proposalsLoading } = useQuery(
-    ownProposalsOptions(1, 50),
-  );
-  // Fetch active contracts
-  const { data: contractsData, isLoading: contractsLoading } = useQuery(
-    contractListOptions(1, 50),
-  );
-  // Fetch marketplace preview
-  const { data: marketplaceData, isLoading: marketLoading } = useQuery(
-    projectListOptions({ page: 1, page_size: 5, sort_by: "created_at" }),
+function FreelancerDashboard() {
+  // load the freelancer's own submitted proposals
+  const proposalsQuery = useQuery(ownProposalsOptions(1, PAGE_SIZE));
+  // load the freelancer's contracts (participant role)
+  const contractsQuery = useQuery(contractListOptions(1, PAGE_SIZE));
+  // load a small, newest-first slice of open marketplace briefs for discovery
+  const marketplaceQuery = useQuery(
+    projectListOptions({ page: 1, page_size: 6, sort_by: "created_at" }),
   );
 
-  // Derive proposal and contract stats
+  const proposalsData = proposalsQuery.data;
+  const contractsData = contractsQuery.data;
+  const marketplaceData = marketplaceQuery.data;
+
+  // derive proposal and contract statistics from real queries
   const stats = useMemo(() => {
     const proposals = proposalsData?.items ?? [];
     const contracts = contractsData?.items ?? [];
     return {
       totalProposals: proposalsData?.total ?? 0,
+      loadedProposals: proposals.length,
       pending: proposals.filter((p) => p.status === "PENDING").length,
       accepted: proposals.filter((p) => p.status === "ACCEPTED").length,
       rejected: proposals.filter((p) => p.status === "REJECTED").length,
@@ -428,112 +479,172 @@ function FreelancerDashboard({ userId }: { userId: number }) {
     };
   }, [proposalsData, contractsData]);
 
-  const isLoading = proposalsLoading || contractsLoading;
+  const isLoading = proposalsQuery.isLoading || contractsQuery.isLoading;
+  const isError = proposalsQuery.isError || contractsQuery.isError;
+
+  // marketplace failure is non-blocking: the proposal tracker below still works
+  const retry = () => {
+    proposalsQuery.refetch();
+    contractsQuery.refetch();
+  };
+
+  // block the whole summary only when the core pipeline data is unavailable
+  if (isError) {
+    return (
+      <ErrorState
+        title="Could not load your pipeline"
+        message="We could not reach the server for your proposals and contracts."
+        onRetry={retry}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">
-      {/* Stat cards row */}
+      {/* Quick navigation action pill bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2.5">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
+          >
+            {icons.search}
+            Find projects
+          </Link>
+          <Link
+            href="/proposals"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            {icons.proposal}
+            My proposals
+            {stats.pending > 0 && (
+              <span className="rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 px-1.5 py-0.2 text-xs font-semibold">
+                {stats.pending}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/contracts"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            {icons.contract}
+            Active contracts
+            {stats.activeContracts > 0 && (
+              <span className="rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 px-1.5 py-0.2 text-xs font-semibold">
+                {stats.activeContracts}
+              </span>
+            )}
+          </Link>
+        </div>
+        <Link
+          href="/profile"
+          className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Manage profile & skills →
+        </Link>
+      </div>
+
+      {/* KPI Stat Cards Row using shared StatCard */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Total Proposals"
-          value={isLoading ? "—" : stats.totalProposals}
-          subtitle={isLoading ? undefined : `${stats.pending} pending`}
-          icon={icons.proposal}
-          accentColor="from-blue-500/30 to-blue-500/5"
-          href="/proposals"
-        />
-        <StatCard
-          label="Accepted"
-          value={isLoading ? "—" : stats.accepted}
-          subtitle="Proposals accepted"
-          icon={icons.check}
-          accentColor="from-green-500/30 to-green-500/5"
-        />
-        <StatCard
           label="Active Contracts"
-          value={isLoading ? "—" : stats.activeContracts}
-          subtitle={isLoading ? undefined : `${stats.completedContracts} completed`}
+          value={stats.activeContracts}
+          subtitle="Workspaces in progress"
           icon={icons.contract}
           accentColor="from-purple-500/30 to-purple-500/5"
           href="/contracts"
+          loading={isLoading}
         />
         <StatCard
-          label="Completed"
-          value={isLoading ? "—" : stats.completedContracts}
-          subtitle="Contracts delivered"
-          icon={icons.money}
+          label="Pending Review"
+          value={stats.pending}
+          subtitle="Awaiting client decision"
+          icon={icons.clock}
           accentColor="from-amber-500/30 to-amber-500/5"
+          href="/proposals"
+          loading={isLoading}
+        />
+        <StatCard
+          label="Accepted"
+          value={stats.accepted}
+          subtitle="Converted to contracts"
+          icon={icons.check}
+          accentColor="from-emerald-500/30 to-emerald-500/5"
+          href="/proposals"
+          loading={isLoading}
+        />
+        <StatCard
+          label="Delivered"
+          value={stats.completedContracts}
+          subtitle="Completed contracts"
+          icon={icons.money}
+          accentColor="from-blue-500/30 to-blue-500/5"
+          href="/contracts"
+          loading={isLoading}
         />
       </div>
 
-      {/* Quick actions bar */}
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/marketplace"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:border-muted-foreground/30 active:scale-[0.98]"
-        >
-          {icons.search}
-          Browse marketplace
-        </Link>
-        <Link
-          href="/proposals"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:border-muted-foreground/30 active:scale-[0.98]"
-        >
-          {icons.proposal}
-          My proposals
-        </Link>
-        <Link
-          href="/contracts"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:border-muted-foreground/30 active:scale-[0.98]"
-        >
-          {icons.contract}
-          Contracts
-        </Link>
-      </div>
+      {/* Page-scope disclosure keeps the proposal tally honest on multi-page data */}
+      {!isLoading && stats.totalProposals > stats.loadedProposals && (
+        <ScopeNote>
+          Proposal cards count the {stats.loadedProposals} bid{stats.loadedProposals === 1 ? "" : "s"} loaded on this
+          page. Open the tracker for all {stats.totalProposals}.
+        </ScopeNote>
+      )}
 
-      {/* Two-column: Proposals breakdown + Active contracts */}
+      {/* Two-Column: Proposal Tracker + Recent Proposals */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Proposal pipeline */}
+        {/* Proposal pipeline breakdown */}
         <div className="lg:col-span-2">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <SectionHeader title="Proposal pipeline" actionLabel="View all" actionHref="/proposals" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <SectionHeader
+              title="Proposal Status"
+              subtitle={`Across the ${stats.loadedProposals} bid${stats.loadedProposals === 1 ? "" : "s"} loaded here`}
+              actionLabel="View all"
+              actionHref="/proposals"
+            />
             <div className="mt-5 space-y-4">
               {isLoading ? (
-                <DashboardSkeleton rows={3} />
+                <ListSkeleton rows={3} />
               ) : (
                 <>
-                  <PipelineRow label="Pending" count={stats.pending} total={stats.totalProposals} color="bg-yellow-500" />
-                  <PipelineRow label="Accepted" count={stats.accepted} total={stats.totalProposals} color="bg-green-500" />
-                  <PipelineRow label="Rejected" count={stats.rejected} total={stats.totalProposals} color="bg-red-400" />
+                  <PipelineRow label="Pending" count={stats.pending} total={stats.loadedProposals} color="bg-amber-500" />
+                  <PipelineRow label="Accepted" count={stats.accepted} total={stats.loadedProposals} color="bg-emerald-500" />
+                  <PipelineRow label="Rejected" count={stats.rejected} total={stats.loadedProposals} color="bg-red-400" />
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Recent proposals feed */}
+        {/* Recent proposals list */}
         <div className="lg:col-span-3">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <SectionHeader title="Recent proposals" actionLabel="View all" actionHref="/proposals" />
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <SectionHeader
+              title="Recent Submissions"
+              subtitle="Your latest proposal activity"
+              actionLabel="Tracker"
+              actionHref="/proposals"
+            />
             <div className="mt-4">
-              {proposalsLoading ? (
-                <DashboardSkeleton rows={4} />
+              {proposalsQuery.isLoading ? (
+                <ListSkeleton rows={4} />
               ) : proposalsData && proposalsData.items.length > 0 ? (
-                <div className="space-y-1">
+                <div className="divide-y divide-border/60">
                   {proposalsData.items.slice(0, 5).map((proposal) => (
-                    <ProposalRow key={proposal.id} proposal={proposal} />
+                    <ProposalItemRow key={proposal.id} proposal={proposal} />
                   ))}
                 </div>
               ) : (
                 <DashboardEmpty
-                  message="You haven't submitted any proposals yet."
+                  message="You haven't submitted any proposals yet. Check the marketplace for open client briefs."
                   action={
                     <Link
                       href="/marketplace"
                       className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                     >
                       {icons.search}
-                      Find projects
+                      Browse marketplace
                     </Link>
                   }
                 />
@@ -543,20 +654,29 @@ function FreelancerDashboard({ userId }: { userId: number }) {
         </div>
       </div>
 
-      {/* Marketplace preview */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        <SectionHeader title="New on marketplace" actionLabel="Browse all" actionHref="/marketplace" />
-        <div className="mt-4">
-          {marketLoading ? (
-            <DashboardSkeleton rows={3} />
+      {/* Marketplace opportunities showcase */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <SectionHeader
+          title="New Marketplace Opportunities"
+          subtitle="Open briefs actively accepting freelancer bids"
+          actionLabel="Explore marketplace"
+          actionHref="/marketplace"
+        />
+        <div className="mt-5">
+          {marketplaceQuery.isLoading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-44 animate-pulse rounded-xl bg-muted/60" />
+              ))}
+            </div>
           ) : marketplaceData && marketplaceData.items.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {marketplaceData.items.slice(0, 3).map((project) => (
-                <MarketplaceCard key={project.id} project={project} />
+                <MarketplaceProjectCard key={project.id} project={project} />
               ))}
             </div>
           ) : (
-            <DashboardEmpty message="No open projects available right now. Check back soon!" />
+            <DashboardEmpty message="No open projects currently available. Check back soon for new client briefs." />
           )}
         </div>
       </div>
@@ -565,60 +685,113 @@ function FreelancerDashboard({ userId }: { userId: number }) {
 }
 
 // ─── ADMIN DASHBOARD ──────────────────────────────────────────────────
+// Purpose: a triage command center. It answers "what needs moderator action now?"
+// and hands deeper platform metrics to /admin/overview.
 
 function AdminDashboard() {
-  const { data: disputes, isLoading } = useQuery(openDisputesOptions);
+  // GET /disputes returns every non-resolved case (OPEN + UNDER_REVIEW) for admins
+  const disputesQuery = useQuery(openDisputesOptions);
+  // stable list reference so the derived metrics memo does not recompute each render
+  const disputes = useMemo(() => disputesQuery.data ?? [], [disputesQuery.data]);
 
-  // Derive stats from dispute data
+  // derive queue metrics from the moderation queue payload only
   const stats = useMemo(() => {
-    const list = disputes ?? [];
     return {
-      total: list.length,
-      open: list.filter((d) => d.status === "OPEN").length,
-      underReview: list.filter((d) => d.status === "UNDER_REVIEW").length,
-      resolved: list.filter((d) => d.status === "RESOLVED").length,
+      open: disputes.filter((d) => d.status === "OPEN").length,
+      underReview: disputes.filter((d) => d.status === "UNDER_REVIEW").length,
+      queue: disputes.length,
     };
   }, [disputes]);
 
+  const { isLoading, isError, refetch } = disputesQuery;
+
+  // show a real error when the queue cannot load, instead of an empty moderation state
+  if (isError) {
+    return (
+      <ErrorState
+        title="Could not load the dispute queue"
+        message="We could not reach the server for the moderation queue."
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* High-urgency alert strip when disputes are awaiting triage */}
+      {!isLoading && stats.open > 0 && (
+        <div className="flex flex-col gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-3.5 text-sm text-red-700 dark:text-red-400 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+            <span className="font-semibold">Awaiting triage:</span>
+            <span>{stats.open} open dispute({stats.open === 1 ? "" : "s"}) need a moderator to start review.</span>
+          </div>
+          <Link
+            href="/admin/disputes"
+            className="font-medium underline hover:text-red-900 dark:hover:text-red-300"
+          >
+            Review queue →
+          </Link>
+        </div>
+      )}
+
+      {/* Triage KPIs — only facts the moderation queue actually supports */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label="Open Disputes"
-          value={isLoading ? "—" : stats.open}
-          subtitle="Require attention"
+          value={stats.open}
+          subtitle="Awaiting triage"
           icon={icons.alert}
-          accentColor="from-red-500/30 to-red-500/5"
+          accentColor="from-red-500/40 to-red-500/5"
           href="/admin/disputes"
+          loading={isLoading}
+          badge={stats.open > 0 ? "Action Required" : undefined}
         />
         <StatCard
           label="Under Review"
-          value={isLoading ? "—" : stats.underReview}
-          subtitle="Being investigated"
+          value={stats.underReview}
+          subtitle="Active investigations"
           icon={icons.clock}
           accentColor="from-amber-500/30 to-amber-500/5"
           href="/admin/disputes"
+          loading={isLoading}
         />
         <StatCard
-          label="Resolved"
-          value={isLoading ? "—" : stats.resolved}
-          subtitle="Successfully closed"
-          icon={icons.check}
-          accentColor="from-green-500/30 to-green-500/5"
-        />
-        <StatCard
-          label="Total Queue"
-          value={isLoading ? "—" : stats.total}
-          subtitle="All disputes"
+          label="Awaiting Resolution"
+          value={stats.queue}
+          subtitle="Open and under review"
           icon={icons.users}
           accentColor="from-blue-500/30 to-blue-500/5"
           href="/admin/disputes"
+          loading={isLoading}
         />
       </div>
 
-      {/* Quick navigation for admin */}
-      <div className="flex flex-wrap gap-3">
+      {/* Prioritized dispute queue — the primary moderation task on this screen */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <SectionHeader
+          title="Dispute Queue"
+          subtitle="Cases requiring mediator review and resolution"
+          actionLabel="Open full queue"
+          actionHref="/admin/disputes"
+        />
+        <div className="mt-4">
+          {isLoading ? (
+            <ListSkeleton rows={5} />
+          ) : disputes.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {disputes.slice(0, 8).map((dispute) => (
+                <DisputeItemRow key={dispute.id} dispute={dispute} />
+              ))}
+            </div>
+          ) : (
+            <DashboardEmpty message="No active disputes in the platform queue. All contracts are running smoothly!" />
+          )}
+        </div>
+      </div>
+
+      {/* Secondary operations links — deeper metrics live on /admin/overview */}
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href="/admin/disputes"
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:opacity-90 hover:shadow-md active:scale-[0.98]"
@@ -627,45 +800,39 @@ function AdminDashboard() {
           Dispute queue
         </Link>
         <Link
+          href="/admin/overview"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-secondary hover:border-muted-foreground/30 active:scale-[0.98]"
+        >
+          {icons.folder}
+          Operations overview
+        </Link>
+        <Link
           href="/admin/users"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:border-muted-foreground/30 active:scale-[0.98]"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-secondary hover:border-muted-foreground/30 active:scale-[0.98]"
         >
           {icons.users}
           Manage users
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            Stage 11
+          </span>
         </Link>
         <Link
           href="/admin/audit-logs"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:border-muted-foreground/30 active:scale-[0.98]"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-secondary hover:border-muted-foreground/30 active:scale-[0.98]"
         >
           {icons.contract}
           Audit logs
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            Stage 11
+          </span>
         </Link>
-      </div>
-
-      {/* Dispute queue */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        <SectionHeader title="Dispute queue" actionLabel="View all" actionHref="/admin/disputes" />
-        <div className="mt-4">
-          {isLoading ? (
-            <DashboardSkeleton rows={5} />
-          ) : disputes && disputes.length > 0 ? (
-            <div className="space-y-1">
-              {disputes.slice(0, 8).map((dispute) => (
-                <DisputeRow key={dispute.id} dispute={dispute} />
-              ))}
-            </div>
-          ) : (
-            <DashboardEmpty message="No open disputes. The platform is running smoothly!" />
-          )}
-        </div>
       </div>
     </div>
   );
 }
 
-// ─── Row components ───────────────────────────────────────────────────
+// ─── Row & Card Feed Subcomponents ────────────────────────────────────
 
-// Pipeline stat row: shows a status label, count, and animated bar
 function PipelineRow({
   label,
   count,
@@ -688,183 +855,181 @@ function PipelineRow({
   );
 }
 
-// Project list row with status, budget, and timestamp
-function ProjectRow({ project, basePath }: { project: Project; basePath: string }) {
+function ProjectItemRow({ project }: { project: Project }) {
   return (
-    <Link
-      href={`${basePath}/${project.id}`}
-      className="group flex items-center gap-4 rounded-lg px-3 py-3 transition-colors hover:bg-secondary/50"
-    >
-      {/* Status dot indicator */}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-        {icons.folder}
-      </div>
+    <div className="group flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-secondary/40 px-2 rounded-xl">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={`/projects/${project.id}`}
+            className="truncate text-sm font-semibold text-foreground hover:text-primary transition-colors"
+          >
             {project.title}
-          </p>
-          <StatusBadge status={project.status} />
+          </Link>
+          <StatusBadge status={project.status} domain="project" />
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{formatMoney(project.budget, project.currency)}</span>
+        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{formatMoney(project.budget, project.currency)}</span>
           <span>·</span>
           <span>{formatRelativeTime(project.created_at)}</span>
           {project.skills.length > 0 && (
             <>
               <span>·</span>
-              <span className="truncate">{project.skills.slice(0, 2).map(s => s.name).join(", ")}</span>
+              <span className="truncate max-w-[200px]">
+                {project.skills.slice(0, 2).map((s) => s.name).join(", ")}
+              </span>
             </>
           )}
         </div>
       </div>
-      {/* Arrow on hover */}
-      <svg className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
-      </svg>
-    </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/projects/${project.id}`}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+        >
+          {project.status === "OPEN" ? "Review bids" : "Details"}
+        </Link>
+      </div>
+    </div>
   );
 }
 
-// Proposal list row with status, price, and time
-function ProposalRow({ proposal }: { proposal: Proposal }) {
+function ProposalItemRow({ proposal }: { proposal: Proposal }) {
   return (
     <Link
-      href={`/proposals`}
-      className="group flex items-center gap-4 rounded-lg px-3 py-3 transition-colors hover:bg-secondary/50"
+      href="/proposals"
+      className="group flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-secondary/40 px-2 rounded-xl"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-        {icons.proposal}
-      </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-            Project #{proposal.project_id}
+        <div className="flex items-center gap-2.5">
+          <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+            Project #{shortId(proposal.project_id)}
           </p>
-          <StatusBadge status={proposal.status} />
+          <StatusBadge status={proposal.status} domain="proposal" />
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{formatMoney(proposal.proposed_price, proposal.currency)}</span>
+        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {formatMoney(proposal.proposed_price, proposal.currency)}
+          </span>
           <span>·</span>
-          <span>{proposal.delivery_days} days</span>
+          <span>{proposal.delivery_days} days estimated</span>
           <span>·</span>
-          <span>{formatRelativeTime(proposal.created_at)}</span>
+          <span>Submitted {formatRelativeTime(proposal.created_at)}</span>
         </div>
       </div>
-      <svg className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
-      </svg>
+      <span className="text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+        View →
+      </span>
     </Link>
   );
 }
 
-// Contract list row with status, price, and deadline
-function ContractRow({ contract }: { contract: Contract }) {
+function ContractItemRow({ contract }: { contract: Contract }) {
   return (
     <Link
       href={`/contracts/${contract.id}`}
-      className="group flex items-center gap-4 rounded-lg px-3 py-3 transition-colors hover:bg-secondary/50"
+      className="group flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-secondary/40 px-2 rounded-xl"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-        {icons.contract}
-      </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-            Contract #{contract.id}
+        <div className="flex items-center gap-2.5">
+          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+            Contract #{shortId(contract.id)}
           </p>
-          <StatusBadge status={contract.status} />
+          <StatusBadge status={contract.status} domain="contract" />
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{formatMoney(contract.agreed_price)}</span>
+        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{formatMoney(contract.agreed_price, contract.currency)}</span>
           <span>·</span>
-          <span>Due {formatRelativeTime(contract.deadline)}</span>
+          <span>Deadline: {formatRelativeTime(contract.deadline)}</span>
         </div>
       </div>
-      <svg className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
-      </svg>
+      <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary">
+        Workspace →
+      </span>
     </Link>
   );
 }
 
-// Dispute list row with urgency indicator
-function DisputeRow({ dispute }: { dispute: Dispute }) {
-  // Urgency based on status — OPEN is more urgent than UNDER_REVIEW
+function DisputeItemRow({ dispute }: { dispute: Dispute }) {
   const urgencyDot =
     dispute.status === "OPEN"
       ? "bg-red-500"
       : dispute.status === "UNDER_REVIEW"
         ? "bg-amber-500"
-        : "bg-green-500";
+        : "bg-emerald-500";
 
   return (
     <Link
       href={`/admin/disputes/${dispute.id}`}
-      className="group flex items-center gap-4 rounded-lg px-3 py-3 transition-colors hover:bg-secondary/50"
+      className="group flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-secondary/40 px-2 rounded-xl"
     >
-      {/* Urgency dot + icon */}
-      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-        {icons.alert}
-        <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${urgencyDot} ring-2 ring-card`} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-            {dispute.title}
-          </p>
-          <StatusBadge status={dispute.status} />
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* urgency indicator dot */}
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${urgencyDot}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5">
+            <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+              {dispute.title}
+            </p>
+            <StatusBadge status={dispute.status} domain="dispute" />
+          </div>
+          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Dispute #{shortId(dispute.id)}</span>
+            <span>·</span>
+            <span>Contract #{shortId(dispute.contract_id)}</span>
+            <span>·</span>
+            <span>Opened {formatRelativeTime(dispute.created_at)}</span>
+          </div>
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>Dispute #{dispute.id}</span>
-          <span>·</span>
-          <span>Contract #{dispute.contract_id}</span>
-          <span>·</span>
-          <span>{formatRelativeTime(dispute.created_at)}</span>
-        </div>
       </div>
-      <svg className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
-      </svg>
+      <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary">
+        Review Dossier →
+      </span>
     </Link>
   );
 }
 
-// Marketplace card for freelancer preview (compact project card)
-function MarketplaceCard({ project }: { project: Project }) {
+function MarketplaceProjectCard({ project }: { project: Project }) {
   return (
     <Link
       href={`/marketplace/${project.id}`}
-      className="group flex flex-col rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/20 hover:-translate-y-0.5 hover:border-muted-foreground/20"
+      className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-muted-foreground/30"
     >
-      <h3 className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-        {project.title}
-      </h3>
-      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-        {project.description}
-      </p>
-
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">
-          {formatMoney(project.budget, project.currency)}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {formatRelativeTime(project.created_at)}
-        </span>
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            {project.title}
+          </h3>
+          <StatusBadge status={project.status} domain="project" />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+          {project.description}
+        </p>
       </div>
 
-      {project.skills.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {project.skills.slice(0, 3).map((skill) => (
-            <span
-              key={skill.id}
-              className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground"
-            >
-              {skill.name}
-            </span>
-          ))}
+      <div className="mt-4 pt-3 border-t border-border/60">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-foreground">
+            {formatMoney(project.budget, project.currency)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatRelativeTime(project.created_at)}
+          </span>
         </div>
-      )}
+
+        {project.skills.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {project.skills.slice(0, 3).map((skill) => (
+              <span
+                key={skill.id}
+                className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground"
+              >
+                {skill.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </Link>
   );
 }
