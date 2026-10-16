@@ -1,51 +1,65 @@
 // Shared status badge for every entity lifecycle label (Architecture.md §2).
-// Maps status enum values to consistent color tokens.
+// Maps status enum values to consistent color tokens with optional domain specialization.
 
-interface StatusBadgeProps {
+export interface StatusBadgeProps {
   status: string;
+  domain?: "project" | "proposal" | "contract" | "task" | "deliverable" | "dispute";
   className?: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
   // Project statuses
-  DRAFT: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400",
-  OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  IN_PROGRESS: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  DRAFT: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border border-neutral-500/20",
+  OPEN: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20",
+  IN_PROGRESS: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20",
+  COMPLETED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
+  CANCELLED: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20",
   // Proposal statuses
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  ACCEPTED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  WITHDRAWN: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400",
+  PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
+  ACCEPTED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
+  REJECTED: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20",
+  WITHDRAWN: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border border-neutral-500/20",
   // Contract statuses
-  ACTIVE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  DELIVERED: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  ACTIVE: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20",
+  DELIVERED: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
   // Task statuses
-  TODO: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400",
-  DONE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  TODO: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border border-neutral-500/20",
+  DONE: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
   // Deliverable statuses
-  SUBMITTED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  REVISION_REQUESTED: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  SUBMITTED: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20",
+  APPROVED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
+  REVISION_REQUESTED: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
   // Dispute statuses
-  OPEN_DISPUTE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  UNDER_REVIEW: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  RESOLVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  OPEN_DISPUTE: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20",
+  UNDER_REVIEW: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
+  RESOLVED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
+};
+
+// Domain-specific status overrides for overlapping status names
+const DOMAIN_OVERRIDES: Record<string, Record<string, string>> = {
+  dispute: {
+    OPEN: "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20",
+    UNDER_REVIEW: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
+    RESOLVED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
+  },
 };
 
 // Human-readable label for status values
 function formatStatus(status: string): string {
+  // convert SNAKE_CASE to Title Case for display
   return status
     .toLowerCase()
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
+export function StatusBadge({ status, domain, className = "" }: StatusBadgeProps) {
+  // resolve style from domain overrides if provided, otherwise default to global status map
+  const overrideStyle = domain ? DOMAIN_OVERRIDES[domain]?.[status] : undefined;
   const styles =
+    overrideStyle ??
     STATUS_STYLES[status] ??
-    "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400";
+    "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border border-neutral-500/20";
 
   return (
     <span
