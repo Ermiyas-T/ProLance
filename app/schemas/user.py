@@ -1,4 +1,5 @@
 import enum
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -14,6 +15,9 @@ class PublicRegistrationRole(str, enum.Enum):
 
 # validates the body of POST /auth/register
 class UserCreate(BaseModel):
+    # reject any client-sent id or unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     full_name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     password: str = Field(min_length=8)
@@ -37,6 +41,9 @@ class UserCreate(BaseModel):
 
 # validates the body of PATCH /auth/me/password
 class PasswordChange(BaseModel):
+    # reject any client-sent id or unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     # current password proves ownership before the hash is replaced
     current_password: str
     # same 8-character floor as registration so the new hash is never weaker
@@ -45,12 +52,18 @@ class PasswordChange(BaseModel):
 
 # validates the body of POST /auth/me/deactivate
 class AccountDeactivation(BaseModel):
+    # reject any client-sent id or unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     # require the password so a stolen, still-valid token cannot disable the account
     password: str
 
 
 # validates the body of POST /auth/login
 class UserLogin(BaseModel):
+    # reject any client-sent id or unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     email: EmailStr
     password: str
 
@@ -66,7 +79,7 @@ class UserOut(BaseModel):
     # allow building this schema straight from a SQLAlchemy User row
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: uuid.UUID
     full_name: str
     email: EmailStr
     role: UserRole
@@ -82,5 +95,5 @@ class Token(BaseModel):
 
 # the identity decoded out of a token (user id + role)
 class TokenData(BaseModel):
-    user_id: int | None = None
+    user_id: uuid.UUID | None = None
     role: UserRole | None = None

@@ -1,8 +1,9 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Numeric, String, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Numeric, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,15 +29,29 @@ class Contract(Base):
         Index("idx_contracts_participants", "client_id", "freelancer_id", "status"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the contract to the project being worked on
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, unique=True)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("projects.id"), nullable=False, unique=True
+    )
     # link the contract to the accepted proposal (single source of truth)
-    proposal_id: Mapped[int] = mapped_column(ForeignKey("proposals.id"), nullable=False, unique=True)
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("proposals.id"), nullable=False, unique=True
+    )
     # link the contract to the client who owns the project
-    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # link the contract to the freelancer who submitted the accepted proposal
-    freelancer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    freelancer_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # store the agreed price as Decimal-compatible fixed precision
     agreed_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     # ISO 4217 currency code for the agreed price (inherited from the proposal)

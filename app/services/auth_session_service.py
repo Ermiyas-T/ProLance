@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ def is_auth_session_expired(auth_session: AuthSession, now: datetime) -> bool:
     return expires_at <= now
 
 
-def create_auth_session(db: Session, user_id: int) -> tuple[AuthSession, str]:
+def create_auth_session(db: Session, user_id: uuid.UUID) -> tuple[AuthSession, str]:
     # create a server-revocable session and return its browser-only secret once
     refresh_secret = create_refresh_secret()
     auth_session = AuthSession(
@@ -64,7 +65,7 @@ def revoke_auth_session(db: Session, session_id: str) -> None:
         db.commit()
 
 
-def revoke_all_user_sessions(db: Session, user_id: int) -> None:
+def revoke_all_user_sessions(db: Session, user_id: uuid.UUID) -> None:
     # stage every session revocation for the caller's surrounding security transaction
     db.execute(
         update(AuthSession)

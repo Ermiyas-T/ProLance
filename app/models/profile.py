@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
@@ -12,6 +13,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,14 +25,14 @@ from app.db.base import Base
 freelancer_skills = Table(
     "freelancer_skills",
     Base.metadata,
-    Column("freelancer_profile_id", ForeignKey("freelancer_profiles.id"), primary_key=True),
+    Column("freelancer_profile_id", Uuid(as_uuid=True), ForeignKey("freelancer_profiles.id"), primary_key=True),
     Column("skill_id", ForeignKey("skills.id"), primary_key=True),
     # composite index for fast candidate matching queries by skills
     Index("idx_freelancer_skills_composite", "freelancer_profile_id", "skill_id"),
 )
 
 
-# a reusable, normalized skill that many freelancers can share
+# a reusable, normalized skill that many freelancers can share (taxonomy lookup table)
 class Skill(Base):
     __tablename__: str = "skills"
 
@@ -48,13 +50,21 @@ class Skill(Base):
 class ClientProfile(Base):
     __tablename__: str = "client_profiles"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    # one client profile per user (unique FK)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
+    # one client profile per user (unique FK referencing User UUID)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     bio: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(String(100))
     avatar_url: Mapped[str | None] = mapped_column(String(500))
+    # Keep the provider identifier private so replaced Cloudinary assets can be removed.
+    avatar_public_id: Mapped[str | None] = mapped_column(String(255))
 
     # link back to the owning user account
     user: Mapped["User"] = relationship()
@@ -74,13 +84,21 @@ class FreelancerProfile(Base):
         CheckConstraint("hourly_rate >= 0", name="check_freelancer_hourly_rate_non_negative"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    # one freelancer profile per user (unique FK)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
+    # one freelancer profile per user (unique FK referencing User UUID)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
     professional_title: Mapped[str | None] = mapped_column(String(100))
     bio: Mapped[str | None] = mapped_column(Text)
     # store the safe server-generated URL for the freelancer's profile image
     avatar_url: Mapped[str | None] = mapped_column(String(500))
+    # Keep the provider identifier private so replaced Cloudinary assets can be removed.
+    avatar_public_id: Mapped[str | None] = mapped_column(String(255))
     # money is stored as fixed-precision Decimal, never a float
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     # ISO 4217 currency code for the hourly rate (ETB is the platform default)
@@ -117,9 +135,15 @@ class FreelancerProfile(Base):
 class PortfolioItem(Base):
     __tablename__: str = "portfolio_items"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    freelancer_profile_id: Mapped[int] = mapped_column(
-        ForeignKey("freelancer_profiles.id"), nullable=False
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
+    freelancer_profile_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("freelancer_profiles.id"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)

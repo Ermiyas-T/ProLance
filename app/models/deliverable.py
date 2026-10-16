@@ -1,7 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,11 +25,21 @@ class Deliverable(Base):
         Index("idx_deliverables_contract_id", "contract_id"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the deliverable to the contract whose work it delivers
-    contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    contract_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id"), nullable=False
+    )
     # link the deliverable to the freelancer who submitted it
-    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    submitted_by: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # track the submission iteration within the contract, auto-assigned by the service
     version_number: Mapped[int] = mapped_column(nullable=False)
     # store the freelancer's summary of what was delivered

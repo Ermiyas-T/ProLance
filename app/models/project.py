@@ -1,9 +1,23 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Table, Text, func
+from sqlalchemy import (
+    Column,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Table,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,7 +40,7 @@ class ProjectStatus(str, enum.Enum):
 project_skills = Table(
     "project_skills",
     Base.metadata,
-    Column("project_id", ForeignKey("projects.id"), primary_key=True),
+    Column("project_id", Uuid(as_uuid=True), ForeignKey("projects.id"), primary_key=True),
     Column("skill_id", ForeignKey("skills.id"), primary_key=True),
     # support project-to-skill lookups used when writing and filtering projects
     Index("idx_project_skills_composite", "project_id", "skill_id"),
@@ -43,15 +57,24 @@ class Project(Base):
         Index("idx_projects_status_budget", "status", "budget"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # keep ownership on the user account rather than a mutable client profile
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     # store budgets as Decimal-compatible fixed precision rather than floating point
     budget: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # ISO 4217 code for the budget; ETB is the platform default, other codes are allowed
     currency: Mapped[str] = mapped_column(
-        String(3), default="USD", server_default="USD", nullable=False
+        String(3), default="ETB", server_default="ETB", nullable=False
     )
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # status changes only through service actions, never direct request input

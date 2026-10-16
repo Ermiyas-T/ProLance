@@ -1,3 +1,4 @@
+import uuid
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
@@ -36,10 +37,12 @@ def get_current_user(
 
         # decode the token and extract the user id it was signed with
         payload = decode_access_token(token)
-        token_data = TokenData(user_id=payload.get("user_id"), role=payload.get("role"))
+        raw_user_id = payload.get("user_id")
+        user_id = uuid.UUID(str(raw_user_id)) if raw_user_id else None
+        token_data = TokenData(user_id=user_id, role=payload.get("role"))
         if token_data.user_id is None:
             raise credentials_exception
-    except JWTError:
+    except (JWTError, ValueError):
         raise credentials_exception
 
     # access cookies are bound to a live session so logout takes effect immediately

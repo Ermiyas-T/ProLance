@@ -1,7 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,9 +25,17 @@ class Task(Base):
         Index("idx_tasks_contract_status", "contract_id", "status"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the task to the contract it belongs to
-    contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    contract_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id"), nullable=False
+    )
     # brief summary of what needs to be done
     title: Mapped[str] = mapped_column(nullable=False)
     # optional detailed description of the task

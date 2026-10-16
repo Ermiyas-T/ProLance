@@ -1,7 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,13 +24,23 @@ class Dispute(Base):
         Index("idx_disputes_status", "status"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the dispute to the contract it concerns
-    contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    contract_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id"), nullable=False
+    )
     # load the disputed contract directly for participant visibility checks
     contract: Mapped["Contract"] = relationship()
     # link the dispute to the participant who raised it
-    opened_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    opened_by: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # short headline summarizing the issue for queue scanning
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     # full free-form description of the problem from the opener's perspective
@@ -41,7 +52,9 @@ class Dispute(Base):
     # admin's final decision notes, stored when the dispute is resolved
     resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
     # link the admin who resolved the dispute for accountability
-    resolved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

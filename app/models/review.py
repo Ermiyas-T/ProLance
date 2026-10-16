@@ -1,7 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -37,13 +38,25 @@ class Review(Base):
         Index("idx_reviews_reviewee_id", "reviewee_id"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the review to the completed contract it evaluates
-    contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    contract_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id"), nullable=False
+    )
     # link the review to the participant writing it
-    reviewer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # link the review to the participant being evaluated
-    reviewee_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    reviewee_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     # routing is derived from the reviewer's contract role, never accepted from request input
     review_type: Mapped[ReviewType] = mapped_column(Enum(ReviewType), nullable=False)
     # mandatory headline score validated to the 1..5 range by a database check constraint

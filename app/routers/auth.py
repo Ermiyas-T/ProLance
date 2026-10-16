@@ -30,7 +30,7 @@ REFRESH_COOKIE_NAME = "prolance_refresh"
 def set_auth_cookies(response: Response, user: User, session_id: str, refresh_secret: str) -> None:
     # issue HttpOnly cookies so browser JavaScript can never read credential material
     access_token = create_access_token(
-        {"user_id": user.id, "role": user.role.value, "session_id": session_id}
+        {"user_id": str(user.id), "role": user.role.value, "session_id": session_id}
     )
     cookie_options = {
         "httponly": True,

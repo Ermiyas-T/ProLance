@@ -1,4 +1,5 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -52,14 +54,20 @@ class Proposal(Base):
         Index("idx_proposals_project_status", "project_id", "status"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # use database-generated UUID with fallback for tests
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
     # link the proposal to the project being bid on
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"), nullable=False, index=True
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True
     )
     # link the proposal to the freelancer submitting the bid
-    freelancer_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
+    freelancer_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     # store the freelancer's quoted price as Decimal-compatible fixed precision
     proposed_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
