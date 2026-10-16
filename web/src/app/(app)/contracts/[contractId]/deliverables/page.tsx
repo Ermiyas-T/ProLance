@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function ContractDeliverablesPage() {
-  const params = useParams();
+  // contract IDs are UUID strings on the wire, so type the route param accordingly
+  const params = useParams<{ contractId: string }>();
   const router = useRouter();
   const contractId = params.contractId;
 
