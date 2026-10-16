@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -26,7 +27,7 @@ def make_user(db: Session, role: UserRole, email: str, full_name: str | None = N
 
 def auth_headers(user: User) -> dict[str, str]:
     # sign the same identity shape produced by the real login endpoint
-    token = create_access_token({"user_id": user.id, "role": user.role.value})
+    token = create_access_token({"user_id": str(user.id), "role": user.role.value})
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -37,7 +38,7 @@ def future_deadline(days: int = 14) -> datetime:
 
 def make_project(
     db: Session,
-    owner_id: int,
+    owner_id: uuid.UUID,
     status: ProjectStatus = ProjectStatus.OPEN,
     title: str = "Build an API",
     budget: Decimal = Decimal("1200.00"),
@@ -60,8 +61,8 @@ def make_project(
 
 def make_proposal(
     db: Session,
-    project_id: int,
-    freelancer_id: int,
+    project_id: uuid.UUID,
+    freelancer_id: uuid.UUID,
     status: ProposalStatus = ProposalStatus.PENDING,
     price: Decimal = Decimal("900.00"),
 ) -> Proposal:

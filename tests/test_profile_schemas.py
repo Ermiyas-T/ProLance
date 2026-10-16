@@ -1,5 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
+from uuid import uuid4
+
+import pytest
+from pydantic import ValidationError
 
 from app.schemas.profile import (
     ClientProfileCreate,
@@ -21,24 +25,22 @@ def test_client_profile_schemas():
         display_name="Acme Corp",
         bio="We build great products",
         location="New York, NY",
-        avatar_url="https://example.com/avatar.png",
     )
     assert create_data.display_name == "Acme Corp"
 
     # construct output schema for client profile
     now = datetime.now()
     out_data = ClientProfileOut(
-        id=1,
-        user_id=10,
+        id=uuid4(),
+        user_id=uuid4(),
         display_name=create_data.display_name,
         bio=create_data.bio,
         location=create_data.location,
-        avatar_url=create_data.avatar_url,
+        avatar_url="https://res.cloudinary.com/example/image/upload/avatar.jpg",
         created_at=now,
         updated_at=now,
     )
-    assert out_data.id == 1
-    assert out_data.user_id == 10
+    assert out_data.avatar_url == "https://res.cloudinary.com/example/image/upload/avatar.jpg"
 
 
 # test freelancer profile schemas including monetary precision and nested models
@@ -49,8 +51,8 @@ def test_freelancer_profile_schemas():
 
     # construct nested portfolio item response model
     portfolio_item = PortfolioItemOut(
-        id=100,
-        freelancer_profile_id=2,
+        id=uuid4(),
+        freelancer_profile_id=uuid4(),
         title="E-commerce App",
         description="Built with FastAPI",
         url="https://github.com/example/repo",
@@ -70,20 +72,36 @@ def test_freelancer_profile_schemas():
     # construct output schema for freelancer profile
     now = datetime.now()
     out_data = FreelancerProfileOut(
-        id=2,
-        user_id=20,
+        id=uuid4(),
+        user_id=uuid4(),
         professional_title=create_data.professional_title,
         bio=create_data.bio,
         hourly_rate=create_data.hourly_rate,
+        # hourly rate currency now exposed on the profile response
+        currency="ETB",
         skills=[skill],
         portfolio_items=[portfolio_item],
         created_at=now,
         updated_at=now,
     )
-    assert out_data.id == 2
     # assert running average rating default
     assert out_data.avg_rating == Decimal("0.00")
     # assert completed projects count default
     assert out_data.completed_projects_count == 0
     assert len(out_data.skills) == 1
     assert len(out_data.portfolio_items) == 1
+
+
+@pytest.mark.parametrize(
+    ("schema", "payload"),
+    [
+        (ClientProfileCreate, {"display_name": "Client", "avatar_url": "https://example.com/a.jpg"}),
+        (ClientProfileUpdate, {"avatar_url": "https://example.com/a.jpg"}),
+        (FreelancerProfileCreate, {"hourly_rate": "50.00", "avatar_url": "https://example.com/a.jpg"}),
+        (FreelancerProfileUpdate, {"avatar_url": "https://example.com/a.jpg"}),
+    ],
+)
+def test_profile_write_schemas_reject_direct_avatar_urls(schema, payload):
+    # Keep avatar changes on the authenticated upload path instead of trusting client URLs.
+    with pytest.raises(ValidationError):
+        schema(**payload)

@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,7 @@ from helpers import make_contract, make_project, make_proposal
 
 # shared request payloads so each test only customizes what it exercises
 CREATE_PAYLOAD = DisputeCreate(
-    contract_id=0,
+    contract_id=uuid.uuid4(),
     title="Work not delivered",
     description="The freelancer stopped responding two weeks ago.",
 )

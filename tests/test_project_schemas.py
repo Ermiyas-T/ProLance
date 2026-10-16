@@ -24,6 +24,18 @@ def test_project_create_normalizes_safe_inputs() -> None:
     assert data.currency == "USD"
 
 
+def test_project_create_defaults_currency_to_etb() -> None:
+    # ETB is the platform default when the client sends no currency at all
+    data = ProjectCreate(
+        title="Backend API",
+        description="Build endpoints",
+        budget=Decimal("500.00"),
+        deadline=datetime.now(timezone.utc) + timedelta(days=7),
+    )
+
+    assert data.currency == "ETB"
+
+
 @pytest.mark.parametrize(
     "payload",
     [

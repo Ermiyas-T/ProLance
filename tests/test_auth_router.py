@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -82,7 +84,7 @@ def test_registers_public_roles_with_account_name(
     assert response_data["role"] == role
 
     # confirm only a bcrypt hash reaches persistence
-    created_user = db.get(User, response_data["id"])
+    created_user = db.get(User, UUID(response_data["id"]))
     assert created_user is not None
     assert created_user.hashed_password != registration_payload["password"]
     assert created_user.full_name == "Ada Lovelace"
@@ -225,7 +227,7 @@ def test_token_for_deleted_user_is_rejected(
     user_id = register_response.json()["id"]
     token = create_access_token({"user_id": user_id, "role": "FREELANCER"})
 
-    stored_user = db.get(User, user_id)
+    stored_user = db.get(User, UUID(user_id))
     db.delete(stored_user)
     db.commit()
 
