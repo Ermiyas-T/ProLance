@@ -26,6 +26,22 @@ class Settings(BaseSettings):
     AUTH_COOKIE_SAMESITE: str = "lax"
     AUTH_COOKIE_DOMAIN: str | None = None
     ALLOWED_ORIGINS: str = ""
+    # Keep Cloudinary optional so the API can start without external storage configured.
+    CLOUDINARY_CLOUD_NAME: str | None = None
+    CLOUDINARY_API_KEY: str | None = None
+    CLOUDINARY_API_SECRET: str | None = None
+
+    @property
+    def cloudinary_configured(self) -> bool:
+        # Treat blank environment entries like missing credentials.
+        return all(
+            value and value.strip()
+            for value in (
+                self.CLOUDINARY_CLOUD_NAME,
+                self.CLOUDINARY_API_KEY,
+                self.CLOUDINARY_API_SECRET,
+            )
+        )
 
 
 # Pydantic fills the no-default fields from .env, so no args are needed

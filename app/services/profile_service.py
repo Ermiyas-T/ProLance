@@ -1,6 +1,14 @@
+import logging
+import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.avatar_storage import (
+    AvatarStorageError,
+    AvatarStorageNotConfiguredError,
+    delete_avatar_asset,
+    upload_avatar_asset,
+)
 from app.models.profile import ClientProfile, FreelancerProfile, PortfolioItem, Skill
 from app.schemas.profile import (
     ClientProfileCreate,
@@ -10,22 +18,23 @@ from app.schemas.profile import (
     PortfolioItemCreate,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # fetch client profile by user ID or return None if not found
-def get_client_profile(db: Session, user_id: int) -> ClientProfile | None:
+def get_client_profile(db: Session, user_id: uuid.UUID) -> ClientProfile | None:
     # querying using SQLAlchemy 2.x scalar select on unique user_id
     return db.scalar(select(ClientProfile).where(ClientProfile.user_id == user_id))
 
 
 # create a new client profile for the authenticated client user
-def create_client_profile(db: Session, user_id: int, data: ClientProfileCreate) -> ClientProfile:
+def create_client_profile(db: Session, user_id: uuid.UUID, data: ClientProfileCreate) -> ClientProfile:
     # create the SQLAlchemy ClientProfile model instance bound to the user
     profile = ClientProfile(
         user_id=user_id,
         display_name=data.display_name,
         bio=data.bio,
         location=data.location,
-        avatar_url=data.avatar_url,
     )
     # add and commit to database, then refresh to populate generated fields
     db.add(profile)
@@ -36,7 +45,7 @@ def create_client_profile(db: Session, user_id: int, data: ClientProfileCreate) 
 
 # update an existing client profile using non-None fields from update schema
 def update_client_profile(
-    db: Session, user_id: int, data: ClientProfileUpdate
+    db: Session, user_id: uuid.UUID, data: ClientProfileUpdate
 ) -> ClientProfile | None:
     # retrieve existing profile row for user
     profile = get_client_profile(db, user_id)
@@ -55,7 +64,7 @@ def update_client_profile(
 
 
 # fetch freelancer profile by user ID or return None if not found
-def get_freelancer_profile(db: Session, user_id: int) -> FreelancerProfile | None:
+def get_freelancer_profile(db: Session, user_id: uuid.UUID) -> FreelancerProfile | None:
     # querying using SQLAlchemy 2.x scalar select on unique user_id
     return db.scalar(select(FreelancerProfile).where(FreelancerProfile.user_id == user_id))
 
@@ -76,14 +85,13 @@ def _get_or_create_skill(db: Session, skill_name: str) -> Skill:
 
 # create a freelancer profile for the authenticated freelancer user
 def create_freelancer_profile(
-    db: Session, user_id: int, data: FreelancerProfileCreate
+    db: Session, user_id: uuid.UUID, data: FreelancerProfileCreate
 ) -> FreelancerProfile:
     # instantiate profile row with primary fields
     profile = FreelancerProfile(
         user_id=user_id,
         professional_title=data.professional_title,
         bio=data.bio,
-        avatar_url=data.avatar_url,
         hourly_rate=data.hourly_rate,
     )
     # add profile to session so relationship population during flush proceeds cleanly
@@ -103,7 +111,7 @@ def create_freelancer_profile(
 
 # update an existing freelancer profile using non-None fields from update schema
 def update_freelancer_profile(
-    db: Session, user_id: int, data: FreelancerProfileUpdate
+    db: Session, user_id: uuid.UUID, data: FreelancerProfileUpdate
 ) -> FreelancerProfile | None:
     # retrieve existing profile row for user
     profile = get_freelancer_profile(db, user_id)
@@ -135,8 +143,9 @@ def update_freelancer_profile(
 
 # persist a validated avatar URL on the role-specific profile record
 def update_profile_avatar(
-    db: Session, user_id: int, role: str, avatar_url: str
-) -> ClientProfile | FreelancerProfile | None:
+    db: Session, user_id: uuid.UUID, role: str, image_data: bytes
+) -> str | None:
+    # Resolve the profile first so missing profiles never create orphan Cloudinary assets.
     profile = (
         get_client_profile(db, user_id)
         if role == "CLIENT"
@@ -145,14 +154,33 @@ def update_profile_avatar(
     if not profile:
         return None
 
+    # Upload a new asset before changing the profile so the old avatar remains available.
+    avatar_url, public_id = upload_avatar_asset(image_data)
+    previous_public_id = profile.avatar_public_id
     profile.avatar_url = avatar_url
-    db.commit()
-    db.refresh(profile)
-    return profile
+    profile.avatar_public_id = public_id
+    try:
+        # Commit the new reference before removing the previous remote asset.
+        db.commit()
+    except Exception:
+        db.rollback()
+        try:
+            delete_avatar_asset(public_id)
+        except (AvatarStorageError, AvatarStorageNotConfiguredError):
+            logger.exception("Failed to clean up a Cloudinary avatar after profile persistence failed")
+        raise
+
+    # Old assets are cleanup-only; a provider error must not undo a successful profile update.
+    if previous_public_id and previous_public_id != public_id:
+        try:
+            delete_avatar_asset(previous_public_id)
+        except (AvatarStorageError, AvatarStorageNotConfiguredError):
+            logger.exception("Failed to clean up the previous Cloudinary avatar")
+    return avatar_url
 
 
 # add a new skill by name to a freelancer profile
-def add_skill_to_freelancer(db: Session, profile_id: int, skill_name: str) -> Skill:
+def add_skill_to_freelancer(db: Session, profile_id: uuid.UUID, skill_name: str) -> Skill:
     # fetch freelancer profile by ID
     profile = db.get(FreelancerProfile, profile_id)
     if not profile:
@@ -169,7 +197,7 @@ def add_skill_to_freelancer(db: Session, profile_id: int, skill_name: str) -> Sk
 
 
 # remove a skill link from a freelancer profile
-def remove_skill_from_freelancer(db: Session, profile_id: int, skill_id: int) -> bool:
+def remove_skill_from_freelancer(db: Session, profile_id: uuid.UUID, skill_id: int) -> bool:
     # fetch freelancer profile by ID
     profile = db.get(FreelancerProfile, profile_id)
     if not profile:
@@ -187,7 +215,7 @@ def remove_skill_from_freelancer(db: Session, profile_id: int, skill_id: int) ->
 
 
 # retrieve all skills associated with a given freelancer profile
-def get_freelancer_skills(db: Session, profile_id: int) -> list[Skill]:
+def get_freelancer_skills(db: Session, profile_id: uuid.UUID) -> list[Skill]:
     # fetch profile and return associated skills list
     profile = db.get(FreelancerProfile, profile_id)
     if not profile:
@@ -197,7 +225,7 @@ def get_freelancer_skills(db: Session, profile_id: int) -> list[Skill]:
 
 # add a new portfolio item under a freelancer profile
 def add_portfolio_item(
-    db: Session, profile_id: int, data: PortfolioItemCreate
+    db: Session, profile_id: uuid.UUID, data: PortfolioItemCreate
 ) -> PortfolioItem:
     # ensure freelancer profile exists
     profile = db.get(FreelancerProfile, profile_id)

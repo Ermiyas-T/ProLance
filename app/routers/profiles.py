@@ -1,12 +1,11 @@
-from pathlib import Path
-from uuid import uuid4
+import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.dependencies.auth import get_current_user, require_role
+from app.dependencies.auth import require_role
 from app.models.profile import Skill
 from app.models.user import User, UserRole
 from app.schemas.profile import (
@@ -33,6 +32,7 @@ from app.services.profile_service import (
     update_freelancer_profile,
     update_profile_avatar,
 )
+from app.services.avatar_storage import AvatarStorageError, AvatarStorageNotConfiguredError
 
 # router grouping for profile management endpoints
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -44,9 +44,6 @@ AVATAR_TYPES = {
     "image/gif": (b"GIF8", ".gif"),
     "image/webp": (b"RIFF", ".webp"),
 }
-AVATAR_DIRECTORY = Path(__file__).resolve().parent.parent.parent / "uploads" / "avatars"
-
-
 # validate declared and actual image content before it reaches public storage
 def _validate_avatar(data: bytes, content_type: str | None) -> str:
     if content_type not in AVATAR_TYPES:
@@ -64,27 +61,23 @@ def _validate_avatar(data: bytes, content_type: str | None) -> str:
 
 
 @router.post("/me/avatar", response_model=AvatarUploadOut)
-async def upload_my_avatar(
-    request: Request,
+def upload_my_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT, UserRole.FREELANCER)),
 ):
     # read one byte beyond the limit so oversized uploads are rejected without storing them
-    image_data = await file.read(MAX_AVATAR_BYTES + 1)
-    extension = _validate_avatar(image_data, file.content_type)
+    image_data = file.file.read(MAX_AVATAR_BYTES + 1)
+    _validate_avatar(image_data, file.content_type)
 
-    # generate an unguessable server filename instead of trusting user input
-    AVATAR_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid4().hex}{extension}"
-    destination = AVATAR_DIRECTORY / filename
-    destination.write_bytes(image_data)
-    avatar_url = f"{str(request.base_url).rstrip('/')}/uploads/avatars/{filename}"
-
-    # require an existing role profile before retaining the uploaded file
-    profile = update_profile_avatar(db, current_user.id, current_user.role.value, avatar_url)
-    if profile is None:
-        destination.unlink(missing_ok=True)
+    # FastAPI runs this synchronous handler in a worker thread while Cloudinary and SQLAlchemy block.
+    try:
+        avatar_url = update_profile_avatar(db, current_user.id, current_user.role.value, image_data)
+    except AvatarStorageNotConfiguredError:
+        raise HTTPException(status_code=503, detail="Profile image storage is not configured") from None
+    except AvatarStorageError:
+        raise HTTPException(status_code=502, detail="Could not store profile image") from None
+    if avatar_url is None:
         raise HTTPException(status_code=404, detail="Create your profile before uploading an image")
     return AvatarUploadOut(avatar_url=avatar_url)
 
@@ -265,7 +258,7 @@ def add_portfolio_item_to_my_profile(
 
 @router.get("/freelancer/{user_id}", response_model=FreelancerProfileOut)
 def get_freelancer_profile_public(
-    user_id: int,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
     # public view allowing anyone to view a freelancer profile by user_id
