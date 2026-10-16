@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -83,7 +84,7 @@ def list_my_projects_endpoint(
 
 @router.get("/mine/{project_id}", response_model=ProjectOut)
 def get_my_project_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
@@ -150,7 +151,7 @@ def list_projects_endpoint(
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
-def get_project_endpoint(project_id: int, db: Session = Depends(get_db)):
+def get_project_endpoint(project_id: uuid.UUID, db: Session = Depends(get_db)):
     # load project requirements before deciding whether this anonymous request may view them
     project = get_project(db, project_id)
     if project is None or project.status != ProjectStatus.OPEN:
@@ -162,7 +163,7 @@ def get_project_endpoint(project_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}", response_model=ProjectOut)
 def update_project_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     data: ProjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
@@ -181,7 +182,7 @@ def update_project_endpoint(
 
 @router.post("/{project_id}/publish", response_model=ProjectOut)
 def publish_project_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
@@ -198,7 +199,7 @@ def publish_project_endpoint(
 
 @router.post("/{project_id}/cancel", response_model=ProjectOut)
 def cancel_project_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
@@ -215,7 +216,7 @@ def cancel_project_endpoint(
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
@@ -230,10 +231,9 @@ def delete_project_endpoint(
         _raise_project_http_error(error)
 
 
-
 @router.get("/{project_id}/proposals", response_model=ProposalListOut)
 def list_project_proposals_endpoint(
-    project_id: int,
+    project_id: uuid.UUID,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),

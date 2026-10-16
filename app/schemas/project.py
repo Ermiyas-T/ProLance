@@ -1,4 +1,5 @@
 import enum
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -25,10 +26,14 @@ def _normalize_required_text(value: str, field_name: str) -> str:
 
 # validate project creation while keeping lifecycle fields server-controlled
 class ProjectCreate(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1)
     budget: Decimal = Field(gt=Decimal("0.00"), max_digits=10, decimal_places=2)
-    currency: str = Field(default="USD", min_length=3, max_length=3)
+    # ISO 4217 code; ETB is the platform default, callers may send other codes (e.g. USD)
+    currency: str = Field(default="ETB", min_length=3, max_length=3)
     deadline: AwareDatetime
     skill_ids: list[int] = Field(default_factory=list)
 
@@ -72,6 +77,9 @@ class ProjectCreate(BaseModel):
 
 # support partial draft edits without allowing callers to assign internal status
 class ProjectUpdate(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, min_length=1)
     budget: Decimal | None = Field(
@@ -121,8 +129,8 @@ class ProjectOut(BaseModel):
     # allow FastAPI to serialize SQLAlchemy models and loaded skill relationships
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    owner_id: int
+    id: uuid.UUID
+    owner_id: uuid.UUID
     title: str
     description: str
     budget: Decimal

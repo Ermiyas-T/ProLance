@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Sequence
 from typing import Any
 
@@ -42,14 +43,14 @@ def _get_skills_or_raise(db: Session, skill_ids: list[int]) -> Sequence[Skill]:
 
 
 # retrieve a project and eager-load skills for response serialization without N+1 queries
-def get_project(db: Session, project_id: int) -> Project | None:
+def get_project(db: Session, project_id: uuid.UUID) -> Project | None:
     # select by primary key with its collection ready for ProjectOut serialization
     statement = select(Project).options(selectinload(Project.skills)).where(Project.id == project_id)
     return db.scalar(statement)
 
 
 # create a private draft owned by the authenticated client account
-def create_project(db: Session, owner_id: int, data: ProjectCreate) -> Project:
+def create_project(db: Session, owner_id: uuid.UUID, data: ProjectCreate) -> Project:
     # validate all required skills before starting a write transaction
     skills = _get_skills_or_raise(db, data.skill_ids)
     # force the first lifecycle state instead of accepting a caller-controlled status
@@ -71,7 +72,7 @@ def create_project(db: Session, owner_id: int, data: ProjectCreate) -> Project:
 
 
 # require an existing project to belong to the acting client before a mutation proceeds
-def _get_owned_project(db: Session, project_id: int, owner_id: int) -> Project:
+def _get_owned_project(db: Session, project_id: uuid.UUID, owner_id: uuid.UUID) -> Project:
     project = get_project(db, project_id)
     if project is None:
         raise ProjectNotFoundError
@@ -81,7 +82,7 @@ def _get_owned_project(db: Session, project_id: int, owner_id: int) -> Project:
 
 
 # update project requirements only while the project is still an unpublished draft
-def update_project(db: Session, project_id: int, owner_id: int, data: ProjectUpdate) -> Project:
+def update_project(db: Session, project_id: uuid.UUID, owner_id: uuid.UUID, data: ProjectUpdate) -> Project:
     # enforce object-level ownership before inspecting the requested changes
     project = _get_owned_project(db, project_id, owner_id)
     if project.status != ProjectStatus.DRAFT:
@@ -103,7 +104,7 @@ def update_project(db: Session, project_id: int, owner_id: int, data: ProjectUpd
 
 
 # transition an owned draft into the public marketplace exactly once
-def publish_project(db: Session, project_id: int, owner_id: int) -> Project:
+def publish_project(db: Session, project_id: uuid.UUID, owner_id: uuid.UUID) -> Project:
     # enforce ownership before applying a lifecycle action
     project = _get_owned_project(db, project_id, owner_id)
     if project.status != ProjectStatus.DRAFT:
@@ -117,7 +118,7 @@ def publish_project(db: Session, project_id: int, owner_id: int) -> Project:
 
 
 # cancel an owned project before a proposal acceptance creates in-progress work
-def cancel_project(db: Session, project_id: int, owner_id: int) -> Project:
+def cancel_project(db: Session, project_id: uuid.UUID, owner_id: uuid.UUID) -> Project:
     # enforce ownership before applying a lifecycle action
     project = _get_owned_project(db, project_id, owner_id)
     if project.status not in {ProjectStatus.DRAFT, ProjectStatus.OPEN}:
@@ -131,7 +132,7 @@ def cancel_project(db: Session, project_id: int, owner_id: int) -> Project:
 
 
 # delete an owned project draft or cancelled project
-def delete_project(db: Session, project_id: int, owner_id: int) -> None:
+def delete_project(db: Session, project_id: uuid.UUID, owner_id: uuid.UUID) -> None:
     # enforce ownership before deleting
     project = _get_owned_project(db, project_id, owner_id)
     # restrict hard deletion to DRAFT or CANCELLED status so active contracts are not orphaned
@@ -142,7 +143,6 @@ def delete_project(db: Session, project_id: int, owner_id: int) -> None:
     db.delete(project)
     # commit the deletion transaction
     db.commit()
-
 
 
 # apply shared marketplace filters to project and count queries consistently
@@ -192,7 +192,7 @@ def list_projects(
 
 # return all projects owned by a specific client across every lifecycle state
 def list_client_projects(
-    db: Session, owner_id: int, page: int, page_size: int
+    db: Session, owner_id: uuid.UUID, page: int, page_size: int
 ) -> tuple[list[Project], int]:
     # base query scoped to the authenticated client's ownership
     statement = select(Project).where(Project.owner_id == owner_id)
