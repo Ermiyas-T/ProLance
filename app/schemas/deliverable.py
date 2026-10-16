@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Annotated
 
@@ -8,6 +9,9 @@ from app.models.deliverable import DeliverableStatus
 
 # validate request body for submitting a deliverable (V1: URL instead of file upload)
 class DeliverableSubmit(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     message: Annotated[str, Field(min_length=1, max_length=5000)]
     file_url: Annotated[str | None, Field(max_length=2048)] = None
 
@@ -17,9 +21,9 @@ class DeliverableOut(BaseModel):
     # allow building this schema straight from a SQLAlchemy Deliverable row
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    contract_id: int
-    submitted_by: int
+    id: uuid.UUID
+    contract_id: uuid.UUID
+    submitted_by: uuid.UUID
     version_number: int
     message: str
     file_url: str | None
@@ -31,9 +35,15 @@ class DeliverableOut(BaseModel):
 
 # validate request body for approving a deliverable (notes are optional praise)
 class DeliverableApprove(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     revision_notes: Annotated[str | None, Field(max_length=5000)] = None
 
 
 # validate request body for requesting a revision (feedback is required)
 class DeliverableRevisionRequest(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     revision_notes: Annotated[str, Field(min_length=1, max_length=5000)]

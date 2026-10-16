@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import Select, func, select
@@ -50,7 +51,7 @@ class DeliveryDeadlineExceededError(Exception):
 
 
 # retrieve a proposal by primary key
-def get_proposal(db: Session, proposal_id: int) -> Proposal | None:
+def get_proposal(db: Session, proposal_id: uuid.UUID) -> Proposal | None:
     # select by primary key with project relationship for authorization checks
     statement = (
         select(Proposal)
@@ -61,7 +62,7 @@ def get_proposal(db: Session, proposal_id: int) -> Proposal | None:
 
 
 # retrieve a proposal and verify the requester is either the freelancer or the project owner
-def get_authorized_proposal(db: Session, proposal_id: int, user_id: int) -> Proposal:
+def get_authorized_proposal(db: Session, proposal_id: uuid.UUID, user_id: uuid.UUID) -> Proposal:
     proposal = get_proposal(db, proposal_id)
     if proposal is None:
         raise ProposalNotFoundError
@@ -74,12 +75,12 @@ def get_authorized_proposal(db: Session, proposal_id: int, user_id: int) -> Prop
 
 
 # retrieve a project by primary key
-def _get_project(db: Session, project_id: int) -> Project | None:
+def _get_project(db: Session, project_id: uuid.UUID) -> Project | None:
     return db.get(Project, project_id)
 
 
 # verify the project exists and is open for proposals
-def _validate_project_for_proposal(db: Session, project_id: int) -> Project:
+def _validate_project_for_proposal(db: Session, project_id: uuid.UUID) -> Project:
     project = _get_project(db, project_id)
     if project is None:
         raise ProjectNotFoundError
@@ -99,7 +100,7 @@ def _validate_delivery_days(project: Project, delivery_days: int) -> None:
 
 
 # check if the freelancer already has a pending proposal on this project
-def _check_duplicate_proposal(db: Session, project_id: int, freelancer_id: int) -> None:
+def _check_duplicate_proposal(db: Session, project_id: uuid.UUID, freelancer_id: uuid.UUID) -> None:
     existing_proposal = db.scalar(
         select(Proposal).where(
             Proposal.project_id == project_id,
@@ -112,7 +113,7 @@ def _check_duplicate_proposal(db: Session, project_id: int, freelancer_id: int) 
 
 
 # create a new proposal on behalf of a freelancer
-def create_proposal(db: Session, freelancer_id: int, data: ProposalCreate) -> Proposal:
+def create_proposal(db: Session, freelancer_id: uuid.UUID, data: ProposalCreate) -> Proposal:
     # validate the project exists and is open
     project = _validate_project_for_proposal(db, data.project_id)
 
@@ -144,7 +145,7 @@ def create_proposal(db: Session, freelancer_id: int, data: ProposalCreate) -> Pr
 
 
 # verify the proposal exists and belongs to the requesting freelancer
-def _get_owned_proposal(db: Session, proposal_id: int, freelancer_id: int) -> Proposal:
+def _get_owned_proposal(db: Session, proposal_id: uuid.UUID, freelancer_id: uuid.UUID) -> Proposal:
     proposal = get_proposal(db, proposal_id)
     if proposal is None:
         raise ProposalNotFoundError
@@ -155,7 +156,7 @@ def _get_owned_proposal(db: Session, proposal_id: int, freelancer_id: int) -> Pr
 
 # list proposals for a specific project with pagination (only for project owner)
 def list_proposals_for_project(
-    db: Session, project_id: int, owner_id: int, page: int = 1, page_size: int = 20
+    db: Session, project_id: uuid.UUID, owner_id: uuid.UUID, page: int = 1, page_size: int = 20
 ) -> tuple[list[Proposal], int]:
     # verify the project exists and belongs to the requester
     project = _get_project(db, project_id)
@@ -186,7 +187,7 @@ def list_proposals_for_project(
 
 # list all proposals submitted by a specific freelancer with pagination
 def list_proposals_by_freelancer(
-    db: Session, freelancer_id: int, page: int = 1, page_size: int = 20
+    db: Session, freelancer_id: uuid.UUID, page: int = 1, page_size: int = 20
 ) -> tuple[list[Proposal], int]:
     statement = select(Proposal).where(Proposal.freelancer_id == freelancer_id)
     count_statement = (
@@ -208,7 +209,7 @@ def list_proposals_by_freelancer(
 
 
 # withdraw a pending proposal (only by the freelancer who submitted it)
-def withdraw_proposal(db: Session, proposal_id: int, freelancer_id: int) -> Proposal:
+def withdraw_proposal(db: Session, proposal_id: uuid.UUID, freelancer_id: uuid.UUID) -> Proposal:
     # verify ownership
     proposal = _get_owned_proposal(db, proposal_id, freelancer_id)
 

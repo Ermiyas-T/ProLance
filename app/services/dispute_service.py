@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -36,14 +38,14 @@ class DisputeNotUnderReviewError(Exception):
 
 
 # both admin mutations verify the role at the service layer as defense in depth
-def _ensure_admin(db: Session, admin_id: int) -> None:
+def _ensure_admin(db: Session, admin_id: uuid.UUID) -> None:
     user = db.get(User, admin_id)
     if user is None or user.role != UserRole.ADMIN:
         raise AdminPermissionError
 
 
 # open a dispute on a contract on behalf of one of its participants
-def create_dispute(db: Session, user_id: int, data) -> Dispute:
+def create_dispute(db: Session, user_id: uuid.UUID, data) -> Dispute:
     # retrieve the contract the dispute concerns
     contract = db.get(Contract, data.contract_id)
     if contract is None:
@@ -73,7 +75,7 @@ def create_dispute(db: Session, user_id: int, data) -> Dispute:
 
 
 # fetch one dispute by id; visibility is enforced by the router based on the requester
-def get_dispute(db: Session, dispute_id: int) -> Dispute | None:
+def get_dispute(db: Session, dispute_id: uuid.UUID) -> Dispute | None:
     return db.get(Dispute, dispute_id)
 
 
@@ -88,7 +90,7 @@ def list_open_disputes(db: Session) -> list[Dispute]:
 
 
 # move an open dispute into the admin's active review state
-def start_review(db: Session, dispute_id: int, admin_id: int) -> Dispute:
+def start_review(db: Session, dispute_id: uuid.UUID, admin_id: uuid.UUID) -> Dispute:
     _ensure_admin(db, admin_id)
 
     dispute = db.get(Dispute, dispute_id)
@@ -111,7 +113,7 @@ def start_review(db: Session, dispute_id: int, admin_id: int) -> Dispute:
 
 
 # close a dispute under review with the admin's final decision
-def resolve_dispute(db: Session, dispute_id: int, admin_id: int, data) -> Dispute:
+def resolve_dispute(db: Session, dispute_id: uuid.UUID, admin_id: uuid.UUID, data) -> Dispute:
     _ensure_admin(db, admin_id)
 
     dispute = db.get(Dispute, dispute_id)

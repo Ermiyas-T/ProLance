@@ -1,7 +1,5 @@
-from datetime import datetime
-from typing import Annotated
-
 import enum
+import uuid
 from datetime import datetime
 from typing import Annotated
 
@@ -19,12 +17,18 @@ class TaskStatusInput(str, enum.Enum):
 
 # validate request body for creating a new task
 class TaskCreate(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     title: Annotated[str, Field(min_length=1, max_length=255)]
     description: Annotated[str | None, Field(max_length=5000)] = None
 
 
 # validate request body for updating an existing task
 class TaskUpdate(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     title: Annotated[str | None, Field(min_length=1, max_length=255)] = None
     description: Annotated[str | None, Field(max_length=5000)] = None
     status: Annotated[TaskStatusInput | None] = None
@@ -35,8 +39,8 @@ class TaskOut(BaseModel):
     # allow building this schema straight from a SQLAlchemy Task row
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    contract_id: int
+    id: uuid.UUID
+    contract_id: uuid.UUID
     title: str
     description: str | None
     status: TaskStatus

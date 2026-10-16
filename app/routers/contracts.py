@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,6 @@ from app.services.contract_service import (
     get_contract,
     list_contracts_for_user,
 )
-
 
 # expose contract actions under one resource router
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -58,7 +59,7 @@ def _raise_contract_http_error(error: Exception) -> None:
 
 @router.post("/proposals/{proposal_id}/accept", response_model=ContractOut)
 def accept_proposal_endpoint(
-    proposal_id: int,
+    proposal_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):
@@ -100,7 +101,7 @@ def list_contracts_endpoint(
 
 @router.get("/{contract_id}", response_model=ContractOut)
 def get_contract_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -120,7 +121,7 @@ def get_contract_endpoint(
 
 @router.post("/{contract_id}/cancel", response_model=ContractOut)
 def cancel_contract_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -133,7 +134,7 @@ def cancel_contract_endpoint(
 
 @router.post("/{contract_id}/complete", response_model=ContractOut)
 def complete_contract_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

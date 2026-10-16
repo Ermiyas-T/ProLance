@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from sqlalchemy import distinct, func, select
@@ -30,7 +31,7 @@ class DuplicateReviewError(Exception):
 
 
 # refresh the freelancer's public reputation aggregates from source review data
-def _refresh_freelancer_metrics(db: Session, freelancer_user_id: int) -> None:
+def _refresh_freelancer_metrics(db: Session, freelancer_user_id: uuid.UUID) -> None:
     # metrics live on the profile, so silently skip when the freelancer has none
     profile = db.scalar(
         select(FreelancerProfile).where(FreelancerProfile.user_id == freelancer_user_id)
@@ -60,7 +61,7 @@ def _refresh_freelancer_metrics(db: Session, freelancer_user_id: int) -> None:
 
 
 # submit one participant's review of the other party on a completed contract
-def create_review(db: Session, reviewer_id: int, data) -> Review:
+def create_review(db: Session, reviewer_id: uuid.UUID, data) -> Review:
     # retrieve the contract being reviewed
     contract = db.get(Contract, data.contract_id)
     if contract is None:
@@ -128,7 +129,7 @@ def create_review(db: Session, reviewer_id: int, data) -> Review:
 
 
 # list the reviews a user has received, newest first (public reputation trail)
-def get_reviews_for_user(db: Session, user_id: int) -> list[Review]:
+def get_reviews_for_user(db: Session, user_id: uuid.UUID) -> list[Review]:
     statement = (
         select(Review)
         .where(Review.reviewee_id == user_id)
@@ -138,7 +139,7 @@ def get_reviews_for_user(db: Session, user_id: int) -> list[Review]:
 
 
 # compute the average score a user has received across all of their reviews
-def calculate_average_rating(db: Session, user_id: int) -> Decimal | None:
+def calculate_average_rating(db: Session, user_id: uuid.UUID) -> Decimal | None:
     # average over every review received regardless of direction
     avg_rating = db.scalar(
         select(func.avg(Review.rating_overall)).where(Review.reviewee_id == user_id)

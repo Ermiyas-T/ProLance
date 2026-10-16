@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -43,22 +45,22 @@ class ProposalNotFoundError(Exception):
 
 
 # retrieve a contract by primary key
-def get_contract(db: Session, contract_id: int) -> Contract | None:
+def get_contract(db: Session, contract_id: uuid.UUID) -> Contract | None:
     return db.get(Contract, contract_id)
 
 
 # retrieve a proposal by primary key
-def _get_proposal(db: Session, proposal_id: int) -> Proposal | None:
+def _get_proposal(db: Session, proposal_id: uuid.UUID) -> Proposal | None:
     return db.get(Proposal, proposal_id)
 
 
 # retrieve a project by primary key
-def _get_project(db: Session, project_id: int) -> Project | None:
+def _get_project(db: Session, project_id: uuid.UUID) -> Project | None:
     return db.get(Project, project_id)
 
 
 # verify the contract exists and the requester is a participant
-def _get_participant_contract(db: Session, contract_id: int, user_id: int) -> Contract:
+def _get_participant_contract(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> Contract:
     contract = get_contract(db, contract_id)
     if contract is None:
         raise ContractNotFoundError
@@ -68,7 +70,7 @@ def _get_participant_contract(db: Session, contract_id: int, user_id: int) -> Co
 
 
 # accept a proposal and create contract in a single atomic transaction
-def accept_proposal(db: Session, proposal_id: int, client_id: int) -> Contract:
+def accept_proposal(db: Session, proposal_id: uuid.UUID, client_id: uuid.UUID) -> Contract:
     # retrieve the proposal and verify it exists
     proposal = _get_proposal(db, proposal_id)
     if proposal is None:
@@ -136,7 +138,7 @@ def accept_proposal(db: Session, proposal_id: int, client_id: int) -> Contract:
 
 
 # list contracts for a user (as client or freelancer)
-def list_contracts_for_user(db: Session, user_id: int) -> list[Contract]:
+def list_contracts_for_user(db: Session, user_id: uuid.UUID) -> list[Contract]:
     statement = select(Contract).where(
         (Contract.client_id == user_id) | (Contract.freelancer_id == user_id)
     )
@@ -144,7 +146,7 @@ def list_contracts_for_user(db: Session, user_id: int) -> list[Contract]:
 
 
 # cancel an active contract (only by participants)
-def cancel_contract(db: Session, contract_id: int, user_id: int) -> Contract:
+def cancel_contract(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> Contract:
     # verify the contract exists and the requester is a participant
     contract = _get_participant_contract(db, contract_id, user_id)
 
@@ -177,7 +179,7 @@ def cancel_contract(db: Session, contract_id: int, user_id: int) -> Contract:
 
 
 # complete a contract (V1: explicit completion, deliverable approval in Stage 8)
-def complete_contract(db: Session, contract_id: int) -> Contract:
+def complete_contract(db: Session, contract_id: uuid.UUID) -> Contract:
     # retrieve the contract
     contract = get_contract(db, contract_id)
     if contract is None:

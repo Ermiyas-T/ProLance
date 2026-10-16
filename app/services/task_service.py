@@ -1,4 +1,5 @@
 import enum
+import uuid
 from datetime import datetime
 
 from sqlalchemy import select
@@ -35,12 +36,12 @@ _VALID_TRANSITIONS = {
 }
 
 
-def get_task(db: Session, task_id: int) -> Task | None:
+def get_task(db: Session, task_id: uuid.UUID) -> Task | None:
     """Retrieve a task by primary key."""
     return db.get(Task, task_id)
 
 
-def _get_task_contract(db: Session, task_id: int) -> Contract:
+def _get_task_contract(db: Session, task_id: uuid.UUID) -> Contract:
     """Get the contract that owns this task, raising TaskNotFoundError if missing."""
     task = get_task(db, task_id)
     if task is None:
@@ -48,7 +49,7 @@ def _get_task_contract(db: Session, task_id: int) -> Contract:
     return db.get(Contract, task.contract_id)
 
 
-def _get_participant_contract(db: Session, contract_id: int, user_id: int) -> Contract:
+def _get_participant_contract(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> Contract:
     """Verify the contract exists and the requester is a participant."""
     contract = db.get(Contract, contract_id)
     if contract is None:
@@ -81,7 +82,7 @@ class _TaskUpdate:
 
 
 def create_task(
-    db: Session, contract_id: int, user_id: int, data: _TaskCreate
+    db: Session, contract_id: uuid.UUID, user_id: uuid.UUID, data: _TaskCreate
 ) -> Task:
     """Create a new task for a contract."""
 
@@ -104,7 +105,7 @@ def create_task(
     return task
 
 
-def list_tasks_for_contract(db: Session, contract_id: int, user_id: int) -> list[Task]:
+def list_tasks_for_contract(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> list[Task]:
     """List all tasks for a contract, verifying requester is a participant."""
     # verify requester is a participant in this contract
     _get_participant_contract(db, contract_id, user_id)
@@ -113,7 +114,7 @@ def list_tasks_for_contract(db: Session, contract_id: int, user_id: int) -> list
     return list(db.scalars(statement).all())
 
 
-def update_task(db: Session, task_id: int, user_id: int, data: _TaskUpdate) -> Task:
+def update_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID, data: _TaskUpdate) -> Task:
     """Update a task's title, description, or status."""
 
     # retrieve the task
@@ -140,7 +141,7 @@ def update_task(db: Session, task_id: int, user_id: int, data: _TaskUpdate) -> T
     return task
 
 
-def delete_task(db: Session, task_id: int, user_id: int) -> Task:
+def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Task:
     """Delete a task, verifying contract is active and requester is a participant."""
     # retrieve the task
     task = get_task(db, task_id)

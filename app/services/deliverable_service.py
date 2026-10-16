@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -38,7 +40,7 @@ class NotContractClientError(Exception):
 
 
 # verify the contract exists and the requester is a participant
-def _get_participant_contract(db: Session, contract_id: int, user_id: int) -> Contract:
+def _get_participant_contract(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> Contract:
     contract = db.get(Contract, contract_id)
     if contract is None:
         raise DeliverableNotFoundError
@@ -48,7 +50,7 @@ def _get_participant_contract(db: Session, contract_id: int, user_id: int) -> Co
 
 
 # submit a new deliverable version and move the contract to DELIVERED atomically
-def submit_deliverable(db: Session, contract_id: int, user_id: int, data: DeliverableSubmit) -> Deliverable:
+def submit_deliverable(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID, data: DeliverableSubmit) -> Deliverable:
     # verify the contract exists and the requester is a participant
     contract = _get_participant_contract(db, contract_id, user_id)
 
@@ -96,7 +98,7 @@ def submit_deliverable(db: Session, contract_id: int, user_id: int, data: Delive
 
 
 # list the full version trail for a contract, verifying requester participation
-def list_deliverables(db: Session, contract_id: int, user_id: int) -> list[Deliverable]:
+def list_deliverables(db: Session, contract_id: uuid.UUID, user_id: uuid.UUID) -> list[Deliverable]:
     # verify requester is a participant in this contract
     _get_participant_contract(db, contract_id, user_id)
 
@@ -110,13 +112,13 @@ def list_deliverables(db: Session, contract_id: int, user_id: int) -> list[Deliv
 
 
 # retrieve a deliverable by primary key
-def get_deliverable(db: Session, deliverable_id: int) -> Deliverable | None:
+def get_deliverable(db: Session, deliverable_id: uuid.UUID) -> Deliverable | None:
     return db.get(Deliverable, deliverable_id)
 
 
 # verify the deliverable exists and the requester participates in its contract
 def _get_participant_deliverable(
-    db: Session, deliverable_id: int, user_id: int
+    db: Session, deliverable_id: uuid.UUID, user_id: uuid.UUID
 ) -> tuple[Deliverable, Contract]:
     deliverable = get_deliverable(db, deliverable_id)
     if deliverable is None:
@@ -126,7 +128,7 @@ def _get_participant_deliverable(
 
 
 # approve a submitted deliverable and cascade contract and project to COMPLETED atomically
-def approve_deliverable(db: Session, deliverable_id: int, client_id: int) -> Deliverable:
+def approve_deliverable(db: Session, deliverable_id: uuid.UUID, client_id: uuid.UUID) -> Deliverable:
     # verify the deliverable exists and the requester is a participant
     deliverable, contract = _get_participant_deliverable(db, deliverable_id, client_id)
 
@@ -167,7 +169,7 @@ def approve_deliverable(db: Session, deliverable_id: int, client_id: int) -> Del
 
 # request a revision on a submitted deliverable and move the contract back to ACTIVE
 def request_revision(
-    db: Session, deliverable_id: int, client_id: int, data: DeliverableRevisionRequest
+    db: Session, deliverable_id: uuid.UUID, client_id: uuid.UUID, data: DeliverableRevisionRequest
 ) -> Deliverable:
     # verify the deliverable exists and the requester is a participant
     deliverable, contract = _get_participant_deliverable(db, deliverable_id, client_id)

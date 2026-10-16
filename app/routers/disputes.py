@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,6 @@ from app.services.dispute_service import (
     resolve_dispute,
     start_review,
 )
-
 
 # expose dispute actions under one resource router
 router = APIRouter(tags=["disputes"])
@@ -77,7 +78,7 @@ def list_disputes_endpoint(
 
 @router.get("/disputes/{dispute_id}", response_model=DisputeOut)
 def get_dispute_endpoint(
-    dispute_id: int,
+    dispute_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -100,7 +101,7 @@ def get_dispute_endpoint(
 
 @router.post("/disputes/{dispute_id}/start-review", response_model=DisputeOut)
 def start_review_endpoint(
-    dispute_id: int,
+    dispute_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
@@ -113,7 +114,7 @@ def start_review_endpoint(
 
 @router.post("/disputes/{dispute_id}/resolve", response_model=DisputeOut)
 def resolve_dispute_endpoint(
-    dispute_id: int,
+    dispute_id: uuid.UUID,
     data: DisputeResolve,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),

@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -23,7 +25,6 @@ from app.services.deliverable_service import (
     request_revision,
     submit_deliverable,
 )
-
 
 # expose deliverable actions under one resource router
 router = APIRouter(tags=["deliverables"])
@@ -64,7 +65,7 @@ def _raise_deliverable_http_error(error: Exception) -> None:
     status_code=status.HTTP_201_CREATED,
 )
 def submit_deliverable_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     data: DeliverableSubmit,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -83,7 +84,7 @@ def submit_deliverable_endpoint(
 
 @router.get("/contracts/{contract_id}/deliverables", response_model=list[DeliverableOut])
 def list_deliverables_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -96,7 +97,7 @@ def list_deliverables_endpoint(
 
 @router.get("/deliverables/{deliverable_id}", response_model=DeliverableOut)
 def get_deliverable_endpoint(
-    deliverable_id: int,
+    deliverable_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -116,7 +117,7 @@ def get_deliverable_endpoint(
 
 @router.post("/deliverables/{deliverable_id}/approve", response_model=DeliverableOut)
 def approve_deliverable_endpoint(
-    deliverable_id: int,
+    deliverable_id: uuid.UUID,
     data: DeliverableApprove,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -138,7 +139,7 @@ def approve_deliverable_endpoint(
     response_model=DeliverableOut,
 )
 def request_revision_endpoint(
-    deliverable_id: int,
+    deliverable_id: uuid.UUID,
     data: DeliverableRevisionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -45,7 +47,7 @@ def _raise_task_http_error(error: Exception) -> None:
 
 @router.post("/contracts/{contract_id}/tasks", response_model=TaskOut)
 def create_task_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     task_data: TaskCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -58,7 +60,7 @@ def create_task_endpoint(
 
 @router.get("/contracts/{contract_id}/tasks", response_model=list[TaskOut])
 def list_tasks_endpoint(
-    contract_id: int,
+    contract_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -70,7 +72,7 @@ def list_tasks_endpoint(
 
 @router.get("/tasks/{task_id}", response_model=TaskOut)
 def get_task_endpoint(
-    task_id: int,
+    task_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -94,7 +96,7 @@ def get_task_endpoint(
 
 @router.put("/tasks/{task_id}", response_model=TaskOut)
 def update_task_endpoint(
-    task_id: int,
+    task_id: uuid.UUID,
     task_data: TaskUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -112,7 +114,7 @@ def update_task_endpoint(
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task_endpoint(
-    task_id: int,
+    task_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

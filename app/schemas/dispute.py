@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Annotated
 
@@ -8,7 +9,10 @@ from app.models.dispute import DisputeStatus
 
 # validate request body for opening a dispute on a contract
 class DisputeCreate(BaseModel):
-    contract_id: int
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
+    contract_id: uuid.UUID
     title: Annotated[str, Field(min_length=1, max_length=200)]
     description: Annotated[str, Field(min_length=1, max_length=5000)]
 
@@ -18,18 +22,21 @@ class DisputeOut(BaseModel):
     # allow building this schema straight from a SQLAlchemy Dispute row
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    contract_id: int
-    opened_by: int
+    id: uuid.UUID
+    contract_id: uuid.UUID
+    opened_by: uuid.UUID
     title: str
     description: str
     status: DisputeStatus
     resolution: str | None
-    resolved_by: int | None
+    resolved_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
 
 # validate the admin's resolution notes when closing a dispute
 class DisputeResolve(BaseModel):
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
     resolution: Annotated[str, Field(min_length=1, max_length=5000)]

@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -14,7 +16,6 @@ from app.services.review_service import (
     create_review,
     get_reviews_for_user,
 )
-
 
 # expose review actions under one resource router
 router = APIRouter(tags=["reviews"])
@@ -62,7 +63,7 @@ def create_review_endpoint(
 
 @router.get("/users/{user_id}/reviews", response_model=list[ReviewOut])
 def list_user_reviews_endpoint(
-    user_id: int,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
     # public endpoint: reputation trails are visible without authentication
@@ -71,7 +72,7 @@ def list_user_reviews_endpoint(
 
 @router.get("/users/{user_id}/reviews/average")
 def user_average_rating_endpoint(
-    user_id: int,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
 ):
     # public aggregate reputation score; null when the user has no reviews yet

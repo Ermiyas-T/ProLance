@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -126,7 +128,7 @@ def list_own_proposals_endpoint(
 
 @router.get("/{proposal_id}", response_model=ProposalOut)
 def get_proposal_endpoint(
-    proposal_id: int,
+    proposal_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -139,7 +141,7 @@ def get_proposal_endpoint(
 
 @router.post("/{proposal_id}/withdraw", response_model=ProposalOut)
 def withdraw_proposal_endpoint(
-    proposal_id: int,
+    proposal_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.FREELANCER)),
 ):
@@ -156,7 +158,7 @@ def withdraw_proposal_endpoint(
 
 @router.post("/{proposal_id}/accept", response_model=ContractOut)
 def accept_proposal_endpoint(
-    proposal_id: int,
+    proposal_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT)),
 ):

@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,7 +17,10 @@ def _normalize_required_text(value: str, field_name: str) -> str:
 
 # validate proposal creation while keeping lifecycle fields server-controlled
 class ProposalCreate(BaseModel):
-    project_id: int = Field(gt=0)
+    # reject client-supplied id or any other unexpected fields
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: uuid.UUID
     proposed_price: Decimal = Field(gt=Decimal("0.00"), max_digits=10, decimal_places=2)
     delivery_days: int = Field(gt=0)
     cover_letter: str = Field(min_length=1)
@@ -33,9 +37,9 @@ class ProposalOut(BaseModel):
     # allow FastAPI to serialize SQLAlchemy models
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    project_id: int
-    freelancer_id: int
+    id: uuid.UUID
+    project_id: uuid.UUID
+    freelancer_id: uuid.UUID
     proposed_price: Decimal
     currency: str
     delivery_days: int

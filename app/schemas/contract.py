@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
@@ -11,11 +12,11 @@ class ContractOut(BaseModel):
     # allow FastAPI to serialize SQLAlchemy models
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    project_id: int
-    proposal_id: int
-    client_id: int
-    freelancer_id: int
+    id: uuid.UUID
+    project_id: uuid.UUID
+    proposal_id: uuid.UUID
+    client_id: uuid.UUID
+    freelancer_id: uuid.UUID
     agreed_price: Decimal
     currency: str
     deadline: datetime
