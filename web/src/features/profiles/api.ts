@@ -95,7 +95,7 @@ export function updateMyFreelancerProfile(
 }
 
 // GET /profiles/freelancer/{userId} — public freelancer profile by user ID
-export function fetchFreelancerProfile(userId: number): Promise<FreelancerProfile> {
+export function fetchFreelancerProfile(userId: string): Promise<FreelancerProfile> {
   return apiFetch<FreelancerProfile>(`/profiles/freelancer/${userId}`);
 }
 
@@ -121,7 +121,7 @@ export function removeFreelancerSkill(skillId: number): Promise<void> {
 // POST /profiles/freelancer/portfolio — add portfolio item
 export function addPortfolioItem(
   data: PortfolioItemCreateRequest,
-): Promise<{ id: number; freelancer_profile_id: number; title: string; description: string | null; url: string | null; created_at: string }> {
+): Promise<{ id: string; freelancer_profile_id: string; title: string; description: string | null; url: string | null; created_at: string }> {
   return apiFetch("/profiles/freelancer/portfolio", {
     method: "POST",
     body: JSON.stringify(data),

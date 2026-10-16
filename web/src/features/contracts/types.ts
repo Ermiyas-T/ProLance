@@ -3,4 +3,4 @@
 import type { PaginationParams } from "@/lib/pagination";
 
 // GET /contracts query params
-export interface ContractFilters extends PaginationParams {}
+export type ContractFilters = PaginationParams;

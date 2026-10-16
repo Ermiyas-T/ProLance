@@ -2,7 +2,7 @@
 
 // POST /disputes body
 export interface DisputeCreateRequest {
-  contract_id: number;
+  contract_id: string;
   title: string;
   description: string;
 }

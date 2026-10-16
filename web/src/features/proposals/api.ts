@@ -20,7 +20,7 @@ export function fetchOwnProposals(
 }
 
 // GET /proposals/{id} — single proposal detail
-export function fetchProposal(id: number): Promise<Proposal> {
+export function fetchProposal(id: string): Promise<Proposal> {
   return apiFetch<Proposal>(`/proposals/${id}`);
 }
 
@@ -33,14 +33,14 @@ export function createProposal(data: ProposalCreateRequest): Promise<Proposal> {
 }
 
 // POST /proposals/{id}/withdraw — withdraw a pending proposal (not DELETE)
-export function withdrawProposal(id: number): Promise<Proposal> {
+export function withdrawProposal(id: string): Promise<Proposal> {
   return apiFetch<Proposal>(`/proposals/${id}/withdraw`, {
     method: "POST",
   });
 }
 
 // POST /proposals/{id}/accept — accept proposal, create contract, reject others
-export function acceptProposal(id: number): Promise<Contract> {
+export function acceptProposal(id: string): Promise<Contract> {
   return apiFetch<Contract>(`/proposals/${id}/accept`, {
     method: "POST",
   });
@@ -48,7 +48,7 @@ export function acceptProposal(id: number): Promise<Contract> {
 
 // GET /projects/{id}/proposals — list proposals for a project (client only)
 export function fetchProjectProposals(
-  projectId: number,
+  projectId: string,
   page = 1,
   page_size = 20,
 ): Promise<PaginatedResponse<Proposal>> {

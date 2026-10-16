@@ -8,13 +8,13 @@ import type {
 } from "./types";
 
 // GET /contracts/{contractId}/deliverables — list deliverables for a contract
-export function fetchDeliverables(contractId: number): Promise<Deliverable[]> {
+export function fetchDeliverables(contractId: string): Promise<Deliverable[]> {
   return apiFetch<Deliverable[]>(`/contracts/${contractId}/deliverables`);
 }
 
 // POST /contracts/{contractId}/deliverables — submit a deliverable (freelancer only)
 export function submitDeliverable(
-  contractId: number,
+  contractId: string,
   data: DeliverableSubmitRequest,
 ): Promise<Deliverable> {
   return apiFetch<Deliverable>(`/contracts/${contractId}/deliverables`, {
@@ -24,7 +24,7 @@ export function submitDeliverable(
 }
 
 // POST /deliverables/{id}/approve — approve a deliverable (client only)
-export function approveDeliverable(id: number): Promise<Deliverable> {
+export function approveDeliverable(id: string): Promise<Deliverable> {
   return apiFetch<Deliverable>(`/deliverables/${id}/approve`, {
     method: "POST",
     body: JSON.stringify({}),
@@ -33,7 +33,7 @@ export function approveDeliverable(id: number): Promise<Deliverable> {
 
 // POST /deliverables/{id}/request-revision — request revision (client only)
 export function requestRevision(
-  id: number,
+  id: string,
   data: DeliverableRevisionRequest,
 ): Promise<Deliverable> {
   return apiFetch<Deliverable>(`/deliverables/${id}/request-revision`, {

@@ -9,7 +9,7 @@ export const disputeKeys = {
   lists: () => [...disputeKeys.all, "list"] as const,
   open: () => [...disputeKeys.lists(), "open"] as const,
   details: () => [...disputeKeys.all, "detail"] as const,
-  detail: (id: number) => [...disputeKeys.details(), id] as const,
+  detail: (id: string) => [...disputeKeys.details(), id] as const,
 };
 
 // Fetches open disputes for admin queue
@@ -19,7 +19,7 @@ export const openDisputesOptions = queryOptions({
 });
 
 // Fetches a single dispute by ID
-export const disputeDetailOptions = (id: number) =>
+export const disputeDetailOptions = (id: string) =>
   queryOptions({
     queryKey: disputeKeys.detail(id),
     queryFn: () => fetchDispute(id),

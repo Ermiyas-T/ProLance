@@ -17,9 +17,9 @@ export const projectKeys = {
   clients: () => [...projectKeys.all, "client"] as const,
   client: (page: number, page_size: number) =>
     [...projectKeys.clients(), { page, page_size }] as const,
-  clientDetail: (id: number) => [...projectKeys.clients(), "detail", id] as const,
+  clientDetail: (id: string) => [...projectKeys.clients(), "detail", id] as const,
   details: () => [...projectKeys.all, "detail"] as const,
-  detail: (id: number) => [...projectKeys.details(), id] as const,
+  detail: (id: string) => [...projectKeys.details(), id] as const,
 };
 
 export const projectListOptions = (filters: ProjectFilters = {}) =>
@@ -29,7 +29,7 @@ export const projectListOptions = (filters: ProjectFilters = {}) =>
     placeholderData: (prev) => prev,
   });
 
-export const projectDetailOptions = (id: number) =>
+export const projectDetailOptions = (id: string) =>
   queryOptions({
     queryKey: projectKeys.detail(id),
     queryFn: () => fetchProject(id),
@@ -43,7 +43,7 @@ export const clientProjectsOptions = (page = 1, page_size = 20) =>
   });
 
 // Fetches a single client-owned project by ID (any status)
-export const clientProjectDetailOptions = (id: number) =>
+export const clientProjectDetailOptions = (id: string) =>
   queryOptions({
     queryKey: projectKeys.clientDetail(id),
     queryFn: () => fetchClientProject(id),

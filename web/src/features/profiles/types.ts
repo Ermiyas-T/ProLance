@@ -5,7 +5,6 @@ export interface ClientProfileCreateRequest {
   display_name: string;
   bio?: string | null;
   location?: string | null;
-  avatar_url?: string | null;
 }
 
 // PUT /profiles/client/me body
@@ -13,7 +12,6 @@ export interface ClientProfileUpdateRequest {
   display_name?: string | null;
   bio?: string | null;
   location?: string | null;
-  avatar_url?: string | null;
 }
 
 // POST /profiles/freelancer body

@@ -17,7 +17,7 @@ export const profileKeys = {
   },
   freelancer: {
     me: () => [...profileKeys.all, "freelancer", "me"] as const,
-    detail: (userId: number) => [...profileKeys.all, "freelancer", userId] as const,
+    detail: (userId: string) => [...profileKeys.all, "freelancer", userId] as const,
   },
 };
 
@@ -40,7 +40,7 @@ export const myFreelancerProfileOptions = queryOptions({
 });
 
 // Fetches a freelancer profile by user ID
-export const freelancerProfileOptions = (userId: number) =>
+export const freelancerProfileOptions = (userId: string) =>
   queryOptions({
     queryKey: profileKeys.freelancer.detail(userId),
     queryFn: () => fetchFreelancerProfile(userId),

@@ -7,12 +7,12 @@ import { fetchDeliverables } from "./api";
 export const deliverableKeys = {
   all: ["deliverables"] as const,
   lists: () => [...deliverableKeys.all, "list"] as const,
-  byContract: (contractId: number) =>
+  byContract: (contractId: string) =>
     [...deliverableKeys.lists(), { contractId }] as const,
 };
 
 // Fetches deliverables for a specific contract
-export const contractDeliverablesOptions = (contractId: number) =>
+export const contractDeliverablesOptions = (contractId: string) =>
   queryOptions({
     queryKey: deliverableKeys.byContract(contractId),
     queryFn: () => fetchDeliverables(contractId),

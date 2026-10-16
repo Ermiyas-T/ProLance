@@ -18,19 +18,19 @@ export function fetchContracts(
 }
 
 // GET /contracts/{id} — single contract detail
-export function fetchContract(id: number): Promise<Contract> {
+export function fetchContract(id: string): Promise<Contract> {
   return apiFetch<Contract>(`/contracts/${id}`);
 }
 
 // POST /contracts/{id}/complete — mark contract as completed
-export function completeContract(id: number): Promise<Contract> {
+export function completeContract(id: string): Promise<Contract> {
   return apiFetch<Contract>(`/contracts/${id}/complete`, {
     method: "POST",
   });
 }
 
 // POST /contracts/{id}/cancel — cancel contract
-export function cancelContract(id: number): Promise<Contract> {
+export function cancelContract(id: string): Promise<Contract> {
   return apiFetch<Contract>(`/contracts/${id}/cancel`, {
     method: "POST",
   });

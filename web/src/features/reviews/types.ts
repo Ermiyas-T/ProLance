@@ -2,7 +2,7 @@
 
 // POST /reviews body
 export interface ReviewCreateRequest {
-  contract_id: number;
+  contract_id: string;
   rating_overall: number;
   rating_communication?: number | null;
   rating_quality?: number | null;
@@ -12,6 +12,6 @@ export interface ReviewCreateRequest {
 
 // GET /users/{id}/reviews/average response
 export interface AverageRatingResponse {
-  user_id: number;
+  user_id: string;
   average_rating: number | null;
 }

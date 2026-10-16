@@ -28,7 +28,7 @@ export function fetchProjects(
 }
 
 // GET /projects/{id} — single project detail
-export function fetchProject(id: number): Promise<Project> {
+export function fetchProject(id: string): Promise<Project> {
   return apiFetch<Project>(`/projects/${id}`);
 }
 
@@ -54,20 +54,20 @@ export function createProject(data: ProjectCreateRequest): Promise<Project> {
 }
 
 // POST /projects/{id}/publish — publish a draft to the marketplace
-export function publishProject(id: number): Promise<Project> {
+export function publishProject(id: string): Promise<Project> {
   return apiFetch<Project>(`/projects/${id}/publish`, {
     method: "POST",
   });
 }
 
 // GET /projects/mine/{id} — client's own project detail (any status)
-export function fetchClientProject(id: number): Promise<Project> {
+export function fetchClientProject(id: string): Promise<Project> {
   return apiFetch<Project>(`/projects/mine/${id}`);
 }
 
 // PUT /projects/{id} — update a draft project
 export function updateProject(
-  id: number,
+  id: string,
   data: Partial<ProjectCreateRequest>,
 ): Promise<Project> {
   return apiFetch<Project>(`/projects/${id}`, {
@@ -77,14 +77,14 @@ export function updateProject(
 }
 
 // POST /projects/{id}/cancel — cancel an open or draft project
-export function cancelProject(id: number): Promise<Project> {
+export function cancelProject(id: string): Promise<Project> {
   return apiFetch<Project>(`/projects/${id}/cancel`, {
     method: "POST",
   });
 }
 
 // DELETE /projects/{id} — delete a draft or cancelled project
-export function deleteProject(id: number): Promise<void> {
+export function deleteProject(id: string): Promise<void> {
   return apiFetch<void>(`/projects/${id}`, {
     method: "DELETE",
   });

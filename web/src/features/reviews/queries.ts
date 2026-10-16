@@ -6,19 +6,19 @@ import { fetchUserReviews, fetchUserAverageRating } from "./api";
 
 export const reviewKeys = {
   all: ["reviews"] as const,
-  user: (userId: number) => [...reviewKeys.all, "user", userId] as const,
-  userAverage: (userId: number) => [...reviewKeys.all, "user", userId, "average"] as const,
+  user: (userId: string) => [...reviewKeys.all, "user", userId] as const,
+  userAverage: (userId: string) => [...reviewKeys.all, "user", userId, "average"] as const,
 };
 
 // Fetches all reviews for a user
-export const userReviewsOptions = (userId: number) =>
+export const userReviewsOptions = (userId: string) =>
   queryOptions({
     queryKey: reviewKeys.user(userId),
     queryFn: () => fetchUserReviews(userId),
   });
 
 // Fetches the average rating for a user
-export const userAverageRatingOptions = (userId: number) =>
+export const userAverageRatingOptions = (userId: string) =>
   queryOptions({
     queryKey: reviewKeys.userAverage(userId),
     queryFn: () => fetchUserAverageRating(userId),

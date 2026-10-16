@@ -10,7 +10,7 @@ export function fetchOpenDisputes(): Promise<Dispute[]> {
 }
 
 // GET /disputes/{id} — single dispute detail
-export function fetchDispute(id: number): Promise<Dispute> {
+export function fetchDispute(id: string): Promise<Dispute> {
   return apiFetch<Dispute>(`/disputes/${id}`);
 }
 
@@ -23,7 +23,7 @@ export function createDispute(data: DisputeCreateRequest): Promise<Dispute> {
 }
 
 // POST /disputes/{id}/start-review — move dispute to UNDER_REVIEW (admin only)
-export function startDisputeReview(id: number): Promise<Dispute> {
+export function startDisputeReview(id: string): Promise<Dispute> {
   return apiFetch<Dispute>(`/disputes/${id}/start-review`, {
     method: "POST",
   });
@@ -31,7 +31,7 @@ export function startDisputeReview(id: number): Promise<Dispute> {
 
 // POST /disputes/{id}/resolve — resolve a dispute (admin only)
 export function resolveDispute(
-  id: number,
+  id: string,
   data: DisputeResolveRequest,
 ): Promise<Dispute> {
   return apiFetch<Dispute>(`/disputes/${id}/resolve`, {

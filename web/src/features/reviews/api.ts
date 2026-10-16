@@ -5,12 +5,12 @@ import type { Review } from "@/types/entities";
 import type { AverageRatingResponse, ReviewCreateRequest } from "./types";
 
 // GET /users/{userId}/reviews — list reviews for a user
-export function fetchUserReviews(userId: number): Promise<Review[]> {
+export function fetchUserReviews(userId: string): Promise<Review[]> {
   return apiFetch<Review[]>(`/users/${userId}/reviews`);
 }
 
 // GET /users/{userId}/reviews/average — get average rating for a user
-export function fetchUserAverageRating(userId: number): Promise<AverageRatingResponse> {
+export function fetchUserAverageRating(userId: string): Promise<AverageRatingResponse> {
   return apiFetch<AverageRatingResponse>(`/users/${userId}/reviews/average`);
 }
 

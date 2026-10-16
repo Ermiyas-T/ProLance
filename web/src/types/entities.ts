@@ -1,10 +1,12 @@
 // Canonical TS types shared across features (Architecture.md §5).
 // These mirror the FastAPI schemas 1:1 — update both sides together.
+// Entity IDs are UUID strings on the wire because the backend models use uuid.UUID
+// primary keys; never coerce them with Number(). Skills are the only integer keys.
 
 export type Role = "CLIENT" | "FREELANCER" | "ADMIN";
 
 export interface User {
-  id: number;
+  id: string;
   full_name: string;
   email: string;
   role: Role;
@@ -21,12 +23,12 @@ export type ProjectStatus =
   | "CANCELLED";
 
 export interface Project {
-  id: number;
-  owner_id: number;
+  id: string;
+  owner_id: string;
   title: string;
   description: string;
   budget: string; // Decimal(10,2) as string — never parsed for math client-side
-  currency: string; // ISO 4217, e.g. "USD"
+  currency: string; // ISO 4217, e.g. "ETB" (platform default)
   deadline: string; // ISO date
   status: ProjectStatus;
   skills: Skill[];
@@ -40,8 +42,8 @@ export interface Skill {
 }
 
 export interface ClientProfile {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   display_name: string;
   bio: string | null;
   location: string | null;
@@ -51,8 +53,8 @@ export interface ClientProfile {
 }
 
 export interface PortfolioItem {
-  id: number;
-  freelancer_profile_id: number;
+  id: string;
+  freelancer_profile_id: string;
   title: string;
   description: string | null;
   url: string | null;
@@ -60,12 +62,13 @@ export interface PortfolioItem {
 }
 
 export interface FreelancerProfile {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   professional_title: string | null;
   bio: string | null;
   avatar_url: string | null;
   hourly_rate: string;
+  currency: string; // ISO 4217 code for the hourly rate (ETB is the platform default)
   avg_rating: string;
   completed_projects_count: number;
   skills: Skill[];
@@ -78,9 +81,9 @@ export interface FreelancerProfile {
 export type ProposalStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
 
 export interface Proposal {
-  id: number;
-  project_id: number;
-  freelancer_id: number;
+  id: string;
+  project_id: string;
+  freelancer_id: string;
   proposed_price: string;
   currency: string;
   delivery_days: number;
@@ -93,12 +96,13 @@ export interface Proposal {
 export type ContractStatus = "ACTIVE" | "DELIVERED" | "COMPLETED" | "CANCELLED";
 
 export interface Contract {
-  id: number;
-  project_id: number;
-  proposal_id: number;
-  client_id: number;
-  freelancer_id: number;
+  id: string;
+  project_id: string;
+  proposal_id: string;
+  client_id: string;
+  freelancer_id: string;
   agreed_price: string;
+  currency: string; // ISO 4217, inherited from the accepted proposal
   deadline: string;
   status: ContractStatus;
   created_at: string;
@@ -109,8 +113,8 @@ export interface Contract {
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 
 export interface Task {
-  id: number;
-  contract_id: number;
+  id: string;
+  contract_id: string;
   title: string;
   description: string | null;
   status: TaskStatus;
@@ -122,9 +126,9 @@ export interface Task {
 export type DeliverableStatus = "SUBMITTED" | "APPROVED" | "REVISION_REQUESTED";
 
 export interface Deliverable {
-  id: number;
-  contract_id: number;
-  submitted_by: number;
+  id: string;
+  contract_id: string;
+  submitted_by: string;
   version_number: number;
   message: string;
   file_url: string | null;
@@ -137,10 +141,10 @@ export interface Deliverable {
 export type ReviewType = "CLIENT_TO_FREELANCER" | "FREELANCER_TO_CLIENT";
 
 export interface Review {
-  id: number;
-  contract_id: number;
-  reviewer_id: number;
-  reviewee_id: number;
+  id: string;
+  contract_id: string;
+  reviewer_id: string;
+  reviewee_id: string;
   review_type: ReviewType;
   rating_overall: number; // 1–5
   rating_communication: number | null;
@@ -154,14 +158,14 @@ export interface Review {
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED";
 
 export interface Dispute {
-  id: number;
-  contract_id: number;
-  opened_by: number;
+  id: string;
+  contract_id: string;
+  opened_by: string;
   title: string;
   description: string;
   status: DisputeStatus;
   resolution: string | null;
-  resolved_by: number | null;
+  resolved_by: string | null;
   created_at: string;
   updated_at: string;
 }

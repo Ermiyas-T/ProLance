@@ -7,12 +7,12 @@ import { fetchTasks } from "./api";
 export const taskKeys = {
   all: ["tasks"] as const,
   lists: () => [...taskKeys.all, "list"] as const,
-  byContract: (contractId: number) =>
+  byContract: (contractId: string) =>
     [...taskKeys.lists(), { contractId }] as const,
 };
 
 // Fetches tasks for a specific contract
-export const contractTasksOptions = (contractId: number) =>
+export const contractTasksOptions = (contractId: string) =>
   queryOptions({
     queryKey: taskKeys.byContract(contractId),
     queryFn: () => fetchTasks(contractId),

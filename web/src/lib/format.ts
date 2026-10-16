@@ -1,9 +1,14 @@
 // Display-only formatting helpers. Money and dates never undergo client math
 // (Architecture.md §1) — values arrive as strings and are only shaped for view.
 
-// Format a monetary value as a display string (e.g. "1,234.56")
+// Platform-default ISO 4217 currency, used only when an entity carries no currency.
+// ETB is the product default; other codes (USD, EUR, …) are fully supported and
+// always take precedence when the API supplies them.
+export const FALLBACK_CURRENCY = "ETB";
+
+// Format a monetary value as a display string (e.g. "ETB 1,234.56")
 // Input is a string to avoid floating-point precision loss.
-export function formatMoney(value: string, currency = "USD"): string {
+export function formatMoney(value: string, currency = FALLBACK_CURRENCY): string {
   const num = parseFloat(value);
   if (isNaN(num)) return value;
   return new Intl.NumberFormat("en-US", {
