@@ -1,7 +1,7 @@
 "use client";
 
 // Profile page — client vs freelancer form (Architecture.md §4).
-// Client: display_name, bio, location, avatar_url.
+// Client: display_name, bio, location, and a separately uploaded profile photo.
 // Freelancer: professional_title, bio, hourly_rate, skills (add/remove), portfolio items.
 
 import { useEffect, useState } from "react";
@@ -184,7 +184,6 @@ function ClientProfileForm() {
       display_name: displayName,
       bio: bio || null,
       location: location || null,
-      avatar_url: avatarUrl || null,
     });
   };
 
@@ -204,7 +203,10 @@ function ClientProfileForm() {
         <AvatarUploader
           avatarUrl={avatarUrl || null}
           disabled={!profile}
-          onUploaded={setAvatarUrl}
+          onUploaded={(url) => {
+            setAvatarUrl(url);
+            void queryClient.invalidateQueries({ queryKey: profileKeys.client.me() });
+          }}
         />
         {!profile && (
           <p className="text-xs text-muted-foreground mt-2">
@@ -253,20 +255,6 @@ function ClientProfileForm() {
           onChange={(e) => setLocation(e.target.value)}
           className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
           placeholder="City, Country"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="avatarUrl" className="block text-sm font-medium text-foreground mb-1.5">
-          Avatar URL
-        </label>
-        <input
-          id="avatarUrl"
-          type="url"
-          value={avatarUrl}
-          onChange={(e) => setAvatarUrl(e.target.value)}
-          className="w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
-          placeholder="https://example.com/avatar.jpg"
         />
       </div>
 
@@ -410,7 +398,10 @@ function FreelancerProfileForm() {
         <AvatarUploader
           avatarUrl={avatarUrl || null}
           disabled={!profile}
-          onUploaded={setAvatarUrl}
+          onUploaded={(url) => {
+            setAvatarUrl(url);
+            void queryClient.invalidateQueries({ queryKey: profileKeys.freelancer.me() });
+          }}
         />
         {!profile && (
           <p className="text-xs text-muted-foreground">
@@ -448,7 +439,7 @@ function FreelancerProfileForm() {
 
         <div>
           <label htmlFor="hourlyRate" className="block text-sm font-medium text-foreground mb-1.5">
-            Hourly rate (USD)
+            Hourly rate ({profile?.currency ?? "ETB"})
           </label>
           <input
             id="hourlyRate"

@@ -20,8 +20,9 @@ import { formatMoney, formatDate, formatRelativeTime } from "@/lib/format";
 // Import TypeScript interfaces for entity types
 import type { Project, ProjectStatus } from "@/types/entities";
 
-// Define pagination size constant
-const PAGE_SIZE = 20;
+// Load a full page of projects (backend allows up to 100) so tabs/search/sort
+// operate over one complete batch instead of a partial page
+const PAGE_SIZE = 100;
 
 // Define available status filter tab options
 const STATUS_TABS: Array<{ label: string; value: ProjectStatus | "ALL" }> = [
@@ -57,9 +58,9 @@ export default function ProjectsPage() {
   // Active view layout mode state (grid vs table)
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   // Confirmation state target ID for cancel modal
-  const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   // Confirmation state target ID for delete modal
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Fetch client-owned projects list from server with React Query
   const { data, isLoading, isFetching, refetch } = useQuery(
@@ -68,7 +69,7 @@ export default function ProjectsPage() {
 
   // Mutation handler for publishing a draft project to OPEN state
   const publishMutation = useMutation({
-    mutationFn: (id: number) => publishProject(id),
+    mutationFn: (id: string) => publishProject(id),
     onSuccess: () => {
       // Invalidate project list cache to trigger updated feed
       queryClient.invalidateQueries({ queryKey: projectKeys.clients() });
@@ -77,7 +78,7 @@ export default function ProjectsPage() {
 
   // Mutation handler for cancelling an open or draft project
   const cancelMutation = useMutation({
-    mutationFn: (id: number) => cancelProject(id),
+    mutationFn: (id: string) => cancelProject(id),
     onSuccess: () => {
       // Clear confirmation target state and invalidate cache
       setCancelConfirmId(null);
@@ -87,7 +88,7 @@ export default function ProjectsPage() {
 
   // Mutation handler for permanently deleting a draft or cancelled project
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteProject(id),
+    mutationFn: (id: string) => deleteProject(id),
     onSuccess: () => {
       // Clear confirmation target state and invalidate cache
       setDeleteConfirmId(null);
@@ -148,10 +149,10 @@ export default function ProjectsPage() {
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
       if (sortOption === "budget_desc") {
-        return parseFloat(b.budget) - parseFloat(a.budget);
+        return Number(b.budget) - Number(a.budget);
       }
       if (sortOption === "budget_asc") {
-        return parseFloat(a.budget) - parseFloat(b.budget);
+        return Number(a.budget) - Number(b.budget);
       }
       if (sortOption === "deadline_asc") {
         return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
@@ -262,11 +263,12 @@ export default function ProjectsPage() {
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-foreground">{statusCounts.ALL}</span>
+              {/* true count across every page, straight from the API total */}
+              <span className="text-3xl font-extrabold text-foreground">{data?.total ?? 0}</span>
               <span className="text-xs text-muted-foreground">projects</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Click to view all projects
+              Across all pages
             </div>
           </button>
 
@@ -296,7 +298,7 @@ export default function ProjectsPage() {
               <span className="text-xs text-muted-foreground">accepting proposals</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Ready for proposal review
+              On this page
             </div>
           </button>
 
@@ -322,37 +324,45 @@ export default function ProjectsPage() {
               <span className="text-xs text-muted-foreground">active contracts</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Tasks & deliverables active
+              On this page
             </div>
           </button>
 
-          {/* KPI Card 4: Drafts & Completed */}
+          {/* KPI Card 4: Drafts (single page-scoped status so the number, the
+              label and the applied filter all agree) */}
           <button
             onClick={() => setSelectedStatus("DRAFT")}
             className={`text-left p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${
-              selectedStatus === "DRAFT" || selectedStatus === "COMPLETED"
+              selectedStatus === "DRAFT"
                 ? "bg-card border-primary/50 ring-2 ring-primary/20 shadow-md"
                 : "bg-card border-border hover:border-border/80 shadow-xs hover:shadow-md"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Drafts / Done</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Drafts</span>
               <div className="p-2 rounded-xl bg-muted text-muted-foreground group-hover:scale-110 transition-transform">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-foreground">{statusCounts.DRAFT}</span>
-              <span className="text-xs text-muted-foreground">Drafts</span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 ml-1">/ {statusCounts.COMPLETED} Done</span>
+              <span className="text-xs text-muted-foreground">unpublished</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Unpublished drafts & finished jobs
+              On this page
             </div>
           </button>
         </div>
+
+        {/* Page-scope note — keeps the status counts honest when there is more than one page */}
+        {totalPages > 1 && (
+          <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl px-4 py-2.5">
+            Status counts, tabs and search cover the {rawItems?.length ?? 0} projects loaded on this page.
+            Use pagination for the remaining {Math.max((data?.total ?? 0) - (rawItems?.length ?? 0), 0)}.
+          </p>
+        )}
 
         {/* Control Toolbar: Status Filter Tabs, Search, Sort & View Mode */}
         <div className="space-y-4">

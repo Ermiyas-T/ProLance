@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/app/providers";
 import { createProject, publishProject } from "@/features/projects/api";
 import { projectKeys } from "@/features/projects/queries";
-import { fetchSkills } from "@/features/profiles/api";
+import { skillsOptions } from "@/features/profiles/queries";
 import { ApiError } from "@/lib/api-client";
 
 // Currency options with labels — ETB first as the default for the Ethiopian market
@@ -55,10 +55,8 @@ export default function NewProjectPage() {
     "draft",
   );
 
-  const { data: skills = [] } = useQuery({
-    queryKey: ["skills"],
-    queryFn: fetchSkills,
-  });
+  // reuse the shared skills query key so this form and the profile page share one cache entry
+  const { data: skills = [] } = useQuery(skillsOptions);
 
   // Filter skills by search term for large lists
   const filteredSkills = useMemo(() => {
@@ -88,14 +86,30 @@ export default function NewProjectPage() {
     },
   });
 
-  // Hooks must be called before early returns (rules-of-hooks)
-  if (!user) return null;
+  // Compute a human-friendly relative deadline label
+  const deadlineLabel = useMemo(() => {
+    if (!deadline) return null;
+    const target = new Date(deadline + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffMs = target.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return null;
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays < 7) return `${diffDays} days from now`;
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} week${weeks > 1 ? "s" : ""} from now`;
+    }
+    const months = Math.floor(diffDays / 30);
+    return `~${months} month${months > 1 ? "s" : ""} from now`;
+  }, [deadline]);
 
   // Compute form completion progress for the visual indicator
   const completedFields = [
     title.trim().length > 0,
     description.trim().length >= 30,
-    parseFloat(budget) > 0,
+    budget.trim().length > 0 && !isNaN(Number(budget)) && Number(budget) > 0,
     deadline.length > 0,
   ].filter(Boolean).length;
   const totalFields = 4;
@@ -168,24 +182,8 @@ export default function NewProjectPage() {
     });
   };
 
-  // Compute a human-friendly relative deadline label
-  const deadlineLabel = useMemo(() => {
-    if (!deadline) return null;
-    const target = new Date(deadline + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffMs = target.getTime() - today.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays <= 0) return null;
-    if (diffDays === 1) return "Tomorrow";
-    if (diffDays < 7) return `${diffDays} days from now`;
-    if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return `${weeks} week${weeks > 1 ? "s" : ""} from now`;
-    }
-    const months = Math.floor(diffDays / 30);
-    return `~${months} month${months > 1 ? "s" : ""} from now`;
-  }, [deadline]);
+  // AppLayout ensures user is non-null before rendering; guard lives AFTER all hooks
+  if (!user) return null;
 
   return (
     <div className="flex flex-1 flex-col">

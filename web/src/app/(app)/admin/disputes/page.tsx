@@ -11,6 +11,8 @@ import { useSession } from "@/app/providers";
 import { openDisputesOptions } from "@/features/disputes/queries";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/format";
+// Import shared UUID label helper so references render as short IDs
+import { shortId } from "@/lib/identity";
 
 export default function AdminDisputesPage() {
   const router = useRouter();
@@ -65,7 +67,7 @@ export default function AdminDisputesPage() {
                       {dispute.description}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Contract #{dispute.contract_id} · Opened by #{dispute.opened_by}
+                      Contract #{shortId(dispute.contract_id)} · Opened by #{shortId(dispute.opened_by)}
                     </p>
                   </div>
                   <div className="text-right shrink-0 ml-4">

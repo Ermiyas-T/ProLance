@@ -4,9 +4,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { ParticipantAvatar } from "@/components/shared/participant-avatar";
+import { shortId } from "@/lib/identity";
+
 export default function AdminUserDetailPage() {
-  const params = useParams();
-  const userId = params.userId;
+  // user IDs are UUID strings on the wire, so never coerce them with Number()
+  const params = useParams<{ userId: string }>();
+  const userId = params.userId ?? "";
 
   return (
     <div className="flex flex-1 flex-col">
@@ -15,7 +19,7 @@ export default function AdminUserDetailPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-primary">User detail</p>
-            <h1 className="mt-1 text-2xl font-bold text-foreground">User #{userId}</h1>
+            <h1 className="mt-1 text-2xl font-bold text-foreground">User #{shortId(userId)}</h1>
           </div>
           <Link
             href="/admin/users"
@@ -28,11 +32,10 @@ export default function AdminUserDetailPage() {
         {/* User Detail Card */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-lg font-bold text-secondary-foreground">
-              #{userId}
-            </div>
+            {/* neutral avatar identifies the account without inventing a name */}
+            <ParticipantAvatar id={userId} size="lg" />
             <div>
-              <h2 className="text-lg font-semibold text-foreground">User Account #{userId}</h2>
+              <h2 className="text-lg font-semibold text-foreground">User Account #{shortId(userId)}</h2>
               <p className="text-sm text-muted-foreground">Detailed account profile inspection</p>
             </div>
           </div>

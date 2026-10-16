@@ -17,6 +17,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: ReactNode;
+  badge?: string;
 }
 
 // A labelled group of nav items; used to give the sidebar visual structure.
@@ -30,6 +31,11 @@ const icons = {
   home: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
+    </svg>
+  ),
+  operations: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
     </svg>
   ),
   projects: (
@@ -123,17 +129,17 @@ const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     {
       label: "Workspace",
       items: [
-        { label: "Overview", href: "/admin/overview", icon: icons.home },
         { label: "Dashboard", href: "/dashboard", icon: icons.home },
+        { label: "Operations", href: "/admin/overview", icon: icons.operations },
         { label: "Contracts", href: "/contracts", icon: icons.contracts },
       ],
     },
     {
       label: "Moderation",
       items: [
-        { label: "Users", href: "/admin/users", icon: icons.users },
         { label: "Disputes", href: "/admin/disputes", icon: icons.disputes },
-        { label: "Audit logs", href: "/admin/audit-logs", icon: icons.audit },
+        { label: "Users", href: "/admin/users", icon: icons.users, badge: "Stage 11" },
+        { label: "Audit logs", href: "/admin/audit-logs", icon: icons.audit, badge: "Stage 11" },
       ],
     },
     {
@@ -230,8 +236,8 @@ export function Sidebar({
                     href={item.href}
                     onClick={onClose}
                     aria-current={active ? "page" : undefined}
-                    title={isCollapsed ? item.label : undefined}
-                    aria-label={isCollapsed ? item.label : undefined}
+                    title={isCollapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ""}` : undefined}
+                    aria-label={isCollapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ""}` : undefined}
                     className={`group flex rounded-lg py-2 text-sm font-medium transition-colors ${
                       isCollapsed ? "justify-center px-2" : "items-center gap-3 px-3"
                     } ${
@@ -249,7 +255,12 @@ export function Sidebar({
                     >
                       {item.icon}
                     </span>
-                    {!isCollapsed && item.label}
+                    {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+                    {!isCollapsed && item.badge && (
+                      <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground group-hover:text-foreground">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -320,7 +331,7 @@ export function Sidebar({
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-neutral-900 shadow-sm"
+            className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm hover:bg-secondary transition-colors"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

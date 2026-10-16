@@ -13,11 +13,13 @@ import { disputeDetailOptions, disputeKeys } from "@/features/disputes/queries";
 import { startDisputeReview, resolveDispute } from "@/features/disputes/api";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/format";
+import { isUuid, shortId } from "@/lib/identity";
 import { ApiError } from "@/lib/api-client";
 
 export default function AdminDisputeResolvePage() {
-  const params = useParams();
-  const disputeId = Number(params.disputeId);
+  const params = useParams<{ disputeId: string }>();
+  // dispute IDs are UUID strings on the wire, so never coerce them with Number()
+  const disputeId = params.disputeId ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useSession();
@@ -57,6 +59,12 @@ export default function AdminDisputeResolvePage() {
   // AppLayout ensures user is non-null before rendering; non-admins are
   // redirected above. Guard lives AFTER all hooks (rules-of-hooks).
   if (!user || user.role !== "ADMIN") return null;
+
+  // reject malformed URLs instead of querying the API with an invalid UUID
+  if (!isUuid(disputeId)) {
+    router.replace("/admin/disputes");
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -99,7 +107,7 @@ export default function AdminDisputeResolvePage() {
             <StatusBadge status={dispute.status} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Dispute #{dispute.id} · Contract #{dispute.contract_id} · Opened by #{dispute.opened_by}
+            Dispute #{shortId(dispute.id)} · Contract #{shortId(dispute.contract_id)} · Opened by #{shortId(dispute.opened_by)}
           </p>
         </div>
 
@@ -181,7 +189,7 @@ export default function AdminDisputeResolvePage() {
             {dispute.resolved_by && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Resolved by</span>
-                <span className="text-sm text-foreground">Admin #{dispute.resolved_by}</span>
+                <span className="text-sm text-foreground">Admin #{shortId(dispute.resolved_by)}</span>
               </div>
             )}
           </div>

@@ -13,13 +13,18 @@ import { useSession } from "@/app/providers";
 import { ownProposalsOptions, proposalKeys } from "@/features/proposals/queries";
 // Import API mutation for withdrawing proposals
 import { withdrawProposal } from "@/features/proposals/api";
+// Import shared status badge component
+import { StatusBadge } from "@/components/shared/status-badge";
 // Import display formatting helpers for currency, dates, and relative timestamps
 import { formatMoney, formatDate, formatRelativeTime } from "@/lib/format";
+// Import shared UUID label helper so project references render as short IDs
+import { shortId } from "@/lib/identity";
 // Import TypeScript entity types
 import type { Proposal, ProposalStatus } from "@/types/entities";
 
-// Define pagination page size constant
-const PAGE_SIZE = 20;
+// Load a full page of proposals (backend allows up to 100) so tabs/search/sort
+// operate over one complete batch instead of a partial page
+const PAGE_SIZE = 100;
 
 // Define available proposal status tabs list
 const STATUS_TABS: { value: ProposalStatus | "ALL"; label: string }[] = [
@@ -29,14 +34,6 @@ const STATUS_TABS: { value: ProposalStatus | "ALL"; label: string }[] = [
   { value: "REJECTED", label: "Rejected" },
   { value: "WITHDRAWN", label: "Withdrawn" },
 ];
-
-// Define badge color styles per proposal status lifecycle state
-const STATUS_STYLES: Record<ProposalStatus, string> = {
-  PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20",
-  ACCEPTED: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
-  REJECTED: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20",
-  WITHDRAWN: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border border-neutral-500/20",
-};
 
 // Define sorting options for proposals
 type SortOption = "newest" | "oldest" | "price_desc" | "price_asc" | "delivery_asc";
@@ -53,7 +50,7 @@ export default function ProposalsPage() {
   // Active page number state for pagination
   const [page, setPage] = useState<number>(1);
   // Selected proposal ID for split-pane detail inspection
-  const [selectedProposalId, setSelectedProposalId] = useState<number | null>(null);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   // Search text query state
   const [searchQuery, setSearchQuery] = useState<string>("");
   // Selected sorting criteria state
@@ -87,12 +84,6 @@ export default function ProposalsPage() {
     return counts;
   }, [rawItems]);
 
-  // Compute total value across all submitted proposals
-  const totalValueProposed = useMemo(() => {
-    const allProposals = rawItems ?? [];
-    return allProposals.reduce((sum, p) => sum + (parseFloat(p.proposed_price) || 0), 0);
-  }, [rawItems]);
-
   // Compute filtered and sorted proposals based on search and tab selections
   const processedProposals = useMemo(() => {
     const allProposals = rawItems ?? [];
@@ -101,12 +92,12 @@ export default function ProposalsPage() {
       // Check status tab match condition
       const matchesTab = activeTab === "ALL" || proposal.status === activeTab;
 
-      // Check text search query match in cover letter or project ID
+      // Check text search query match in cover letter or short project reference
       const query = searchQuery.trim().toLowerCase();
       const matchesSearch =
         query === "" ||
         proposal.cover_letter.toLowerCase().includes(query) ||
-        String(proposal.project_id).includes(query);
+        shortId(proposal.project_id).toLowerCase().includes(query);
 
       return matchesTab && matchesSearch;
     });
@@ -120,10 +111,10 @@ export default function ProposalsPage() {
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
       if (sortOption === "price_desc") {
-        return parseFloat(b.proposed_price) - parseFloat(a.proposed_price);
+        return Number(b.proposed_price) - Number(a.proposed_price);
       }
       if (sortOption === "price_asc") {
-        return parseFloat(a.proposed_price) - parseFloat(b.proposed_price);
+        return Number(a.proposed_price) - Number(b.proposed_price);
       }
       if (sortOption === "delivery_asc") {
         return a.delivery_days - b.delivery_days;
@@ -241,11 +232,12 @@ export default function ProposalsPage() {
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-foreground">{statusCounts.ALL}</span>
+              {/* true count across every page, straight from the API total */}
+              <span className="text-3xl font-extrabold text-foreground">{data?.total ?? 0}</span>
               <span className="text-xs text-muted-foreground">proposals</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Click to view all proposals
+              Across all pages
             </div>
           </button>
 
@@ -273,7 +265,7 @@ export default function ProposalsPage() {
               <span className="text-xs text-muted-foreground">awaiting client</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Under client evaluation
+              On this page
             </div>
           </button>
 
@@ -298,28 +290,44 @@ export default function ProposalsPage() {
               <span className="text-xs text-muted-foreground">contracts awarded</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Successfully won jobs
+              On this page
             </div>
           </button>
 
-          {/* KPI Card 4: Total Proposed Value */}
-          <div className="p-5 rounded-2xl border border-border bg-card shadow-xs">
+          {/* KPI Card 4: Rejected (page-scoped status count, replaces the old
+              win-rate/avg-delivery analytics that implied all-time totals) */}
+          <button
+            onClick={() => setActiveTab("REJECTED")}
+            className={`text-left p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden group ${activeTab === "REJECTED"
+              ? "bg-rose-500/5 border-rose-500/50 ring-2 ring-rose-500/20 shadow-md"
+              : "bg-card border-border hover:border-rose-500/40 shadow-xs hover:shadow-md"
+              }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pipeline Volume</span>
-              <div className="p-2 rounded-xl bg-muted text-muted-foreground">
+              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Rejected</span>
+              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-foreground">{formatMoney(String(totalValueProposed), "USD")}</span>
+              <span className="text-3xl font-extrabold text-rose-600 dark:text-rose-400">{statusCounts.REJECTED}</span>
+              <span className="text-xs text-muted-foreground">declined</span>
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              Gross proposed amount
+              On this page
             </div>
-          </div>
+          </button>
         </div>
+
+        {/* Page-scope note — keeps the status counts honest when there is more than one page */}
+        {totalPages > 1 && (
+          <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl px-4 py-2.5">
+            Status counts, tabs and search cover the {rawItems?.length ?? 0} proposals loaded on this page.
+            Use pagination for the remaining {Math.max((data?.total ?? 0) - (rawItems?.length ?? 0), 0)}.
+          </p>
+        )}
 
         {/* Status Filter Tabs & Search Control Bar */}
         <div className="space-y-4">
@@ -535,11 +543,6 @@ function ProposalDetails({ proposal }: { proposal?: Proposal }) {
   // Return null if no proposal selected
   if (!proposal) return null;
 
-  // Compute daily rate estimate for summary context
-  const dailyRateEstimate = proposal.delivery_days > 0
-    ? (parseFloat(proposal.proposed_price) / proposal.delivery_days).toFixed(2)
-    : null;
-
   // Explanatory guidance message per proposal status state
   const statusGuidance = {
     PENDING: {
@@ -564,21 +567,17 @@ function ProposalDetails({ proposal }: { proposal?: Proposal }) {
     <aside className="bg-card rounded-2xl border border-border/80 p-6 shadow-xs lg:sticky lg:top-6 lg:self-start space-y-6 overflow-y-scroll max-h-[calc(100vh-4rem)] scroll-pt-20">
 
       {/* Header section with Project ID and Status Badge */}
-      {/* Header of the detail pane should be sticky */}
-
       <div className="flex items-start justify-between gap-4 pb-4 border-b border-border/60">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Inspector</span>
           <h2 className="text-xl font-extrabold text-foreground mt-0.5">
-            Project #{proposal.project_id}
+            Project #{shortId(proposal.project_id)}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Submitted {formatRelativeTime(proposal.created_at)} ({formatDate(proposal.created_at)})
           </p>
         </div>
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${STATUS_STYLES[proposal.status]}`}>
-          {proposal.status}
-        </span>
+        <StatusBadge status={proposal.status} domain="proposal" />
       </div>
 
       {/* Guidance Callout Box */}
@@ -602,14 +601,12 @@ function ProposalDetails({ proposal }: { proposal?: Proposal }) {
           </p>
         </div>
 
-        {dailyRateEstimate && (
-          <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50 col-span-2 sm:col-span-1">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Est. Daily Rate</p>
-            <p className="text-lg font-extrabold text-foreground mt-1">
-              {formatMoney(dailyRateEstimate, proposal.currency)} <span className="text-[11px] font-normal text-muted-foreground">/day</span>
-            </p>
-          </div>
-        )}
+        <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50 col-span-2 sm:col-span-1">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Submitted Date</p>
+          <p className="text-sm font-bold text-foreground mt-1.5 truncate">
+            {formatDate(proposal.created_at)}
+          </p>
+        </div>
       </div>
 
       {/* Cover Letter Section */}
@@ -626,12 +623,23 @@ function ProposalDetails({ proposal }: { proposal?: Proposal }) {
       </div>
 
       {/* Bottom Actions Bar */}
-      <div className="pt-4 border-t border-border/60 flex items-center gap-3">
+      <div className="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {proposal.status === "ACCEPTED" ? (
+          <Link
+            href="/contracts"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-xs"
+          >
+            <span>Open Contract Workspace</span>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </Link>
+        ) : null}
         <Link
           href={`/marketplace/${proposal.project_id}`}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-xs"
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold bg-card border border-border text-foreground rounded-xl hover:bg-muted transition-all shadow-xs"
         >
-          <span>View Project in Marketplace</span>
+          <span>View Project Posting</span>
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -703,11 +711,9 @@ function ProposalCard({
               onClick={(e) => e.stopPropagation()}
               className="text-sm font-bold text-foreground hover:text-primary transition-colors group-hover:underline"
             >
-              Project #{proposal.project_id}
+              Project #{shortId(proposal.project_id)}
             </Link>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[proposal.status]}`}>
-              {proposal.status}
-            </span>
+            <StatusBadge status={proposal.status} domain="proposal" />
           </div>
 
           <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">

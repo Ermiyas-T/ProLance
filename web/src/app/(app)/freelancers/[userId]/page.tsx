@@ -9,18 +9,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/app/providers";
 import { freelancerProfileOptions } from "@/features/profiles/queries";
 import { userReviewsOptions, userAverageRatingOptions } from "@/features/reviews/queries";
+import { formatMoney } from "@/lib/format";
+import { isUuid } from "@/lib/identity";
 
 export default function FreelancerProfilePage() {
   const router = useRouter();
   const params = useParams<{ userId: string }>();
   const { user } = useSession();
 
-  const userId = Number(params.userId);
+  const userId = params.userId ?? "";
 
   // AppLayout ensures user is non-null before rendering
   if (!user) return null;
 
-  if (isNaN(userId)) {
+  // reject malformed URLs instead of querying the API with an invalid UUID
+  if (!isUuid(userId)) {
     router.replace("/dashboard");
     return null;
   }
@@ -34,7 +37,7 @@ export default function FreelancerProfilePage() {
   );
 }
 
-function FreelancerProfile({ userId }: { userId: number }) {
+function FreelancerProfile({ userId }: { userId: string }) {
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery(
     freelancerProfileOptions(userId),
   );
@@ -73,7 +76,7 @@ function FreelancerProfile({ userId }: { userId: number }) {
               {profile.professional_title || "Freelancer"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Hourly rate: <span className="font-medium text-foreground">${profile.hourly_rate}/hr</span>
+              Hourly rate: <span className="font-medium text-foreground">{formatMoney(profile.hourly_rate, profile.currency)}/hr</span>
             </p>
           </div>
           <div className="text-right">

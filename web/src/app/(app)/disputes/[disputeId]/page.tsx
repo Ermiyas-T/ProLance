@@ -11,10 +11,12 @@ import { useSession } from "@/app/providers";
 import { disputeDetailOptions } from "@/features/disputes/queries";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/format";
+import { isUuid, shortId } from "@/lib/identity";
 
 export default function DisputePage() {
-  const params = useParams();
-  const disputeId = Number(params.disputeId);
+  const params = useParams<{ disputeId: string }>();
+  // dispute IDs are UUID strings on the wire, so never coerce them with Number()
+  const disputeId = params.disputeId ?? "";
   const router = useRouter();
   const { user } = useSession();
 
@@ -23,6 +25,12 @@ export default function DisputePage() {
   // AppLayout ensures user is non-null before rendering; guard lives AFTER
   // all hooks (rules-of-hooks).
   if (!user) return null;
+
+  // reject malformed URLs instead of querying the API with an invalid UUID
+  if (!isUuid(disputeId)) {
+    router.replace("/contracts");
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -61,7 +69,7 @@ export default function DisputePage() {
             <StatusBadge status={dispute.status} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Dispute #{dispute.id} · Contract #{dispute.contract_id} · Opened {formatDate(dispute.created_at)}
+            Dispute #{shortId(dispute.id)} · Contract #{shortId(dispute.contract_id)} · Opened {formatDate(dispute.created_at)}
           </p>
         </div>
 
@@ -78,7 +86,7 @@ export default function DisputePage() {
             <p className="text-sm text-foreground whitespace-pre-wrap">{dispute.resolution}</p>
             {dispute.resolved_by && (
               <p className="text-xs text-muted-foreground mt-2">
-                Resolved by admin #{dispute.resolved_by} on {formatDate(dispute.updated_at)}
+                Resolved by Admin #{shortId(dispute.resolved_by)} on {formatDate(dispute.updated_at)}
               </p>
             )}
           </div>

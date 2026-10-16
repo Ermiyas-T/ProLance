@@ -14,9 +14,11 @@ import { useSession } from "@/app/providers";
 import { projectListOptions, projectDetailOptions } from "@/features/projects/queries";
 import { skillsOptions } from "@/features/profiles/queries";
 // Import display formatting helpers for currency and dates
-import { formatMoney, formatDate, formatRelativeTime } from "@/lib/format";
+import { formatMoney, formatDate, formatRelativeTime, FALLBACK_CURRENCY } from "@/lib/format";
 // Import TypeScript entity types
 import type { Project } from "@/types/entities";
+// Import the shared anonymous-participant avatar for owner identities
+import { ParticipantAvatar } from "@/components/shared/participant-avatar";
 
 // Define sort option constants for dropdown selector
 const SORT_OPTIONS = [
@@ -148,10 +150,10 @@ export default function MarketplacePage() {
             {/* Page Title & Subtitle */}
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
-                Marketplace Opportunities
+                Marketplace
                 {/* Live refetch status indicator pill */}
                 {isFetching && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-normal rounded-full bg-primary/10 text-primary animate-pulse">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-primary/10 text-primary animate-pulse">
                     <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -161,7 +163,7 @@ export default function MarketplacePage() {
                 )}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Discover open client projects, match your skills, and submit winning proposals.
+                Discover open client projects and submit winning proposals.
               </p>
             </div>
           </div>
@@ -172,7 +174,7 @@ export default function MarketplacePage() {
             <button
               onClick={() => refetch()}
               title="Refresh marketplace listings"
-              className="p-2.5 text-muted-foreground hover:text-foreground bg-card hover:bg-muted/80 border border-border rounded-xl transition-all shadow-xs"
+              className="p-2.5 text-muted-foreground hover:text-foreground bg-card hover:bg-muted/80 border border-border rounded-xl transition-all shadow-xs cursor-pointer"
             >
               <svg className={`h-4 w-4 ${isFetching ? "animate-spin text-primary" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -187,7 +189,7 @@ export default function MarketplacePage() {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              My Submitted Proposals
+              My Proposals
             </Link>
           </div>
         </div>
@@ -198,7 +200,7 @@ export default function MarketplacePage() {
             <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1 uppercase tracking-wider">Skills:</span>
             <button
               onClick={() => handleSkillChange("")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                 skill === ""
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -212,7 +214,7 @@ export default function MarketplacePage() {
                 <button
                   key={s.id}
                   onClick={() => handleSkillChange(isSelected ? "" : String(s.id))}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                     isSelected
                       ? "bg-primary text-primary-foreground shadow-xs"
                       : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -255,7 +257,7 @@ export default function MarketplacePage() {
                       setSearchInput("");
                       router.push(buildUrl({ search: "", skill, sort_by: sortBy, page: "1" }));
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -265,7 +267,7 @@ export default function MarketplacePage() {
               </div>
               <button
                 type="submit"
-                className="px-4 py-2 text-xs sm:text-sm font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-xs"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-xs cursor-pointer"
               >
                 Search
               </button>
@@ -306,7 +308,7 @@ export default function MarketplacePage() {
                 <button
                   onClick={() => setViewMode("grid")}
                   title="Grid Cards View"
-                  className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                     viewMode === "grid"
                       ? "bg-card text-foreground shadow-xs font-semibold"
                       : "text-muted-foreground hover:text-foreground"
@@ -319,7 +321,7 @@ export default function MarketplacePage() {
                 <button
                   onClick={() => setViewMode("table")}
                   title="Table List View"
-                  className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                     viewMode === "table"
                       ? "bg-card text-foreground shadow-xs font-semibold"
                       : "text-muted-foreground hover:text-foreground"
@@ -339,7 +341,7 @@ export default function MarketplacePage() {
               <span>Showing results for active filters</span>
               <button
                 onClick={() => router.push("/marketplace")}
-                className="text-primary hover:underline font-medium text-[11px]"
+                className="text-primary hover:underline font-medium text-[11px] cursor-pointer"
               >
                 Reset all filters
               </button>
@@ -350,17 +352,25 @@ export default function MarketplacePage() {
         {/* Marketplace Content Area: Grid View, Table View, Skeleton, or Empty State */}
         {isLoading ? (
           /* Shimmer Loading Skeletons */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-44 bg-card rounded-2xl border border-border p-5 animate-pulse space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="h-5 bg-muted rounded w-1/2" />
-                  <div className="h-5 bg-muted rounded-full w-16" />
+              <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-muted rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                  </div>
                 </div>
-                <div className="h-4 bg-muted rounded w-3/4" />
                 <div className="h-3 bg-muted rounded w-full" />
-                <div className="pt-2 flex justify-between items-center">
-                  <div className="h-4 bg-muted rounded w-1/4" />
+                <div className="h-3 bg-muted rounded w-5/6" />
+                <div className="flex gap-2 pt-1">
+                  <div className="h-5 bg-muted rounded-lg w-14" />
+                  <div className="h-5 bg-muted rounded-lg w-14" />
+                  <div className="h-5 bg-muted rounded-lg w-14" />
+                </div>
+                <div className="pt-3 border-t border-border/40 flex justify-between items-center">
+                  <div className="h-4 bg-muted rounded w-1/3" />
                   <div className="h-7 bg-muted rounded-xl w-24" />
                 </div>
               </div>
@@ -371,66 +381,75 @@ export default function MarketplacePage() {
             /* Grid Cards Layout View */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {data.items.map((project: Project) => {
-                const projectCurrency = project.currency || "USD";
+                const projectCurrency = project.currency || FALLBACK_CURRENCY;
 
                 return (
                   <Link
                     key={project.id}
                     href={`/marketplace/${project.id}`}
-                    className="block bg-card rounded-2xl border border-border border-l-4 border-l-emerald-500 p-5 shadow-xs hover:shadow-md transition-all duration-200 group flex flex-col justify-between"
+                    className="group block bg-card rounded-2xl border border-border hover:border-primary/30 p-5 shadow-xs hover:shadow-md transition-all duration-300"
                     onMouseEnter={() =>
                       queryClient.prefetchQuery(projectDetailOptions(project.id))
                     }
                   >
-                    <div className="space-y-3">
-                      
-                      {/* Header with Title and Budget Pill */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors group-hover:underline decoration-primary/40 underline-offset-4 line-clamp-1">
-                            {project.title}
-                          </h3>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                            Posted {formatRelativeTime(project.created_at)}
-                          </p>
-                        </div>
-                        <span className="text-sm font-extrabold text-foreground px-2.5 py-1 rounded-xl bg-muted/80 border border-border/60 shrink-0">
-                          {formatMoney(project.budget, projectCurrency)}
-                        </span>
+                    {/* Card Header: Owner Avatar + Project Title + Budget */}
+                    <div className="flex items-start gap-3.5 mb-3.5">
+                      {/* Owner avatar — anonymous, since the payload only carries an ID */}
+                      <ParticipantAvatar id={project.owner_id} size="md" className="ring-2 ring-background shadow-sm" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-snug">
+                          {project.title}
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
+                          <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Posted {formatRelativeTime(project.created_at)}
+                        </p>
                       </div>
-
-                      {/* Project Description excerpt */}
-                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                        {project.description}
-                      </p>
-
-                      {/* Skills Tags */}
-                      {project.skills.length > 0 && (
-                        <div className="flex gap-1.5 flex-wrap pt-1">
-                          {project.skills.slice(0, 4).map((skill) => (
-                            <span
-                              key={skill.id}
-                              className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-secondary text-secondary-foreground border border-border/50"
-                            >
-                              {skill.name}
-                            </span>
-                          ))}
-                          {project.skills.length > 4 && (
-                            <span className="text-[10px] text-muted-foreground self-center">
-                              +{project.skills.length - 4} more
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      {/* Budget pill */}
+                      <span className="text-xs font-extrabold text-foreground px-2.5 py-1 rounded-lg bg-muted border border-border/60 shrink-0 tabular-nums">
+                        {formatMoney(project.budget, projectCurrency)}
+                      </span>
                     </div>
 
+                    {/* Project Description excerpt */}
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                      {project.description}
+                    </p>
+
+                    {/* Skills Tags */}
+                    {project.skills.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-4">
+                        {project.skills.slice(0, 4).map((sk) => (
+                          <span
+                            key={sk.id}
+                            className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground"
+                          >
+                            {sk.name}
+                          </span>
+                        ))}
+                        {project.skills.length > 4 && (
+                          <span className="text-[10px] text-muted-foreground self-center">
+                            +{project.skills.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Card Footer: Target Deadline & Submit CTA */}
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/60 text-xs">
-                      <span className="text-muted-foreground font-medium">
-                        Due {formatDate(project.deadline)}
+                    <div className="flex items-center justify-between pt-3.5 border-t border-border/50 text-xs">
+                      <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                        <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {formatDate(project.deadline)}
                       </span>
-                      <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                        Submit Proposal →
+                      <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                        View Details
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
                       </span>
                     </div>
                   </Link>
@@ -444,6 +463,7 @@ export default function MarketplacePage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase font-semibold tracking-wider">
                     <tr>
+                      <th className="px-5 py-3.5">Client</th>
                       <th className="px-5 py-3.5">Opportunity Title</th>
                       <th className="px-5 py-3.5">Required Skills</th>
                       <th className="px-5 py-3.5">Budget</th>
@@ -453,7 +473,7 @@ export default function MarketplacePage() {
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {data.items.map((project: Project) => {
-                      const projectCurrency = project.currency || "USD";
+                      const projectCurrency = project.currency || FALLBACK_CURRENCY;
 
                       return (
                         <tr
@@ -463,6 +483,10 @@ export default function MarketplacePage() {
                             queryClient.prefetchQuery(projectDetailOptions(project.id))
                           }
                         >
+                          {/* Owner avatar cell */}
+                          <td className="px-5 py-4">
+                            <ParticipantAvatar id={project.owner_id} size="sm" />
+                          </td>
                           <td className="px-5 py-4">
                             <Link href={`/marketplace/${project.id}`} className="font-bold text-foreground hover:text-primary transition-colors text-sm">
                               {project.title}
@@ -474,13 +498,18 @@ export default function MarketplacePage() {
                           <td className="px-5 py-4">
                             <div className="flex gap-1 flex-wrap">
                               {project.skills.slice(0, 3).map((s) => (
-                                <span key={s.id} className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
                                   {s.name}
                                 </span>
                               ))}
+                              {project.skills.length > 3 && (
+                                <span className="text-[10px] text-muted-foreground self-center">
+                                  +{project.skills.length - 3}
+                                </span>
+                              )}
                             </div>
                           </td>
-                          <td className="px-5 py-4 font-bold text-foreground">
+                          <td className="px-5 py-4 font-bold text-foreground tabular-nums">
                             {formatMoney(project.budget, projectCurrency)}
                           </td>
                           <td className="px-5 py-4 text-muted-foreground font-medium">
@@ -491,7 +520,7 @@ export default function MarketplacePage() {
                               href={`/marketplace/${project.id}`}
                               className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
                             >
-                              Submit Proposal →
+                              View Details →
                             </Link>
                           </td>
                         </tr>
@@ -504,23 +533,23 @@ export default function MarketplacePage() {
           )
         ) : (
           /* Empty State when zero projects match filters */
-          <div className="text-center py-16 px-6 bg-card rounded-3xl border border-border shadow-xs max-w-lg mx-auto">
-            <div className="h-16 w-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-20 px-6 bg-card rounded-3xl border border-border shadow-xs max-w-lg mx-auto">
+            <div className="h-16 w-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-5">
               <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
             <h3 className="text-lg font-bold text-foreground">No opportunities found</h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
+            <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">
               {search || skill
-                ? "No open marketplace project matches your active search term or skill filter."
+                ? "No open marketplace projects match your current filters."
                 : "There are currently no open project listings in the marketplace."}
             </p>
             {(search || skill) && (
               <div className="mt-6">
                 <button
                   onClick={() => router.push("/marketplace")}
-                  className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+                  className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs cursor-pointer"
                 >
                   Clear All Filters
                 </button>
@@ -540,14 +569,14 @@ export default function MarketplacePage() {
               <button
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page <= 1}
-                className="px-4 py-2 text-xs font-semibold border border-border rounded-xl bg-card hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-xs font-semibold border border-border rounded-xl bg-card hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 ← Previous
               </button>
               <button
                 onClick={() => handlePageChange(page + 1)}
                 disabled={page >= totalPages}
-                className="px-4 py-2 text-xs font-semibold border border-border rounded-xl bg-card hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-xs font-semibold border border-border rounded-xl bg-card hover:bg-muted transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Next →
               </button>
@@ -558,4 +587,3 @@ export default function MarketplacePage() {
     </div>
   );
 }
-
